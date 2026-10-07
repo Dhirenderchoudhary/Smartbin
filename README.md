@@ -1,9 +1,8 @@
 # Smartbin
 
-Next.js + tRPC monorepo. Postgres via Drizzle.
+Next.js React monorepo. Postgres via Drizzle.
 
-- `apps/web` — Next.js app. tRPC is served at `/api/trpc`
-- `packages/api` — tRPC router
+- `apps/web` — Next.js + React app
 - `packages/db` — Drizzle schema and client
 
 Mobile is a separate repo: `Smartbin-Mobile` (Expo).
