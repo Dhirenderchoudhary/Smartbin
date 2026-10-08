@@ -1,14 +1,18 @@
+version: '3.8'
+
 services:
   postgres:
-    image: postgres:17
-    ports:
-      - "5432:5432"
+    image: postgres:15-alpine
+    container_name: smartbin_postgres
+    restart: always
     environment:
-      POSTGRES_USER: smartbin
-      POSTGRES_PASSWORD: smartbin
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: smartbin
+    ports:
+      - "15432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - smartbin_pgdata:/var/lib/postgresql/data
 
 volumes:
-  pgdata:
+  smartbin_pgdata:
