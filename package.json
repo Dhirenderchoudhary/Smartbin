@@ -1,0 +1,16 @@
+{
+  "name": "smartbin",
+  "private": true,
+  "packageManager": "pnpm@11.21.0",
+  "scripts": {
+    "dev": "pnpm --filter @smartbin/web dev",
+    "build": "pnpm --filter @smartbin/web build",
+    "lint": "pnpm --filter @smartbin/web lint",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11"
+  }
+}
