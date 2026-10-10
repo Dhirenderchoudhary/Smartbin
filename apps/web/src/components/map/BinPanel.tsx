@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   currentPosition,
-  directionsUrl,
   formatDistance,
   reportMissing,
   TYPE_LABEL,
@@ -44,7 +43,7 @@ function TypeDot({ type }: { type: BinType }) {
 
 type Outcome = { tone: "ok" | "error"; text: string } | null;
 
-function SelectedBin({ bin, onReported }: { bin: Bin; onReported: (removed: boolean) => void }) {
+function SelectedBin({ bin, onReported, onNavigate }: { bin: Bin; onReported: (removed: boolean) => void; onNavigate: (bin: Bin) => void }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>(null);
@@ -98,7 +97,7 @@ function SelectedBin({ bin, onReported }: { bin: Bin; onReported: (removed: bool
       )}
 
       <div className="flex gap-2">
-        <Button size="xl" className="flex-1" render={<a href={directionsUrl(bin)} target="_blank" rel="noopener noreferrer" />} nativeButton={false}>
+        <Button size="xl" className="flex-1" onClick={() => onNavigate(bin)}>
           <NavigationIcon data-icon="inline-start" />
           Directions
         </Button>
@@ -136,12 +135,14 @@ export function BinPanel({
   selected,
   onSelect,
   onReported,
+  onNavigate,
   loading,
 }: {
   bins: Bin[];
   selected: Bin | null;
   onSelect: (id: string) => void;
   onReported: (removed: boolean) => void;
+  onNavigate: (bin: Bin) => void;
   loading: boolean;
 }) {
   const others = bins.filter((b) => b.id !== selected?.id);
@@ -168,7 +169,7 @@ export function BinPanel({
           </div>
         )}
 
-        {selected && <SelectedBin key={selected.id} bin={selected} onReported={onReported} />}
+        {selected && <SelectedBin key={selected.id} bin={selected} onReported={onReported} onNavigate={onNavigate} />}
 
         {!loading && others.length > 0 && (
           <div className="flex flex-col">

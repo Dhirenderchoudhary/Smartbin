@@ -1,14 +1,22 @@
 "use client";
 
-import { LocateFixedIcon, MapPinOffIcon, PlusIcon, UserRoundIcon } from "lucide-react";
+import { CheckCircle2Icon, LocateFixedIcon, MapPinOffIcon, PlusIcon, UserRoundIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LogoMark } from "@/components/Logo";
 import { BinPanel } from "@/components/map/BinPanel";
+import { NavigationPanel } from "@/components/map/NavigationPanel";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { currentPosition, fetchNearby, type Bin, type LatLng } from "@/lib/bins";
+import { Spinner } from "@/components/ui/spinner";
+import { fetchNearby, INDIA_VIEW, lastKnownLocation, metresBetween, watchLocation, type Bin, type LatLng } from "@/lib/bins";
+import { routeProgress, walkingRoute, type WalkRoute } from "@/lib/routes";
+
+// Recalculate the route when you're this far off it (and not more often than every 10 s)
+const OFF_ROUTE_M = 35;
+const REROUTE_EVERY_MS = 10_000;
 
 // maplibre needs the browser
 const BinMap = dynamic(() => import("@/components/map/BinMap"), {
@@ -18,24 +26,50 @@ const BinMap = dynamic(() => import("@/components/map/BinMap"), {
 
 type Filter = "ALL" | "WET" | "DRY";
 
-// Map centre while we wait for, or can't get, your location (New Delhi)
-const FALLBACK: LatLng = { lat: 28.6139, lng: 77.209 };
-
 const floating = "bg-card text-foreground shadow-float hover:bg-muted";
 
-export default function NearbyPage() {
-  const [you, setYou] = useState<LatLng | null>(null);
+// useSearchParams needs a Suspense boundary
+export default function Page() {
+  return (
+    <Suspense>
+      <NearbyPage />
+    </Suspense>
+  );
+}
+
+function NearbyPage() {
+  const params = useSearchParams();
+  const [you, setYou] = useState<(LatLng & { heading: number | null }) | null>(null);
   const [locError, setLocError] = useState<string | null>(null);
   const [bins, setBins] = useState<Bin[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  // ?bin=<id> after adding a bin, ?type=WET from the landing page (this page only renders in the browser)
-  const [selectedId, setSelectedId] = useState<string | null>(() => new URLSearchParams(window.location.search).get("bin"));
+  // ?bin=<id> after adding a bin, ?type=WET from the landing page
+  const [selectedId, setSelectedId] = useState<string | null>(() => params.get("bin"));
   const [filter, setFilter] = useState<Filter>(() => {
-    const type = new URLSearchParams(window.location.search).get("type");
+    const type = params.get("type");
     return type === "WET" || type === "DRY" ? type : "ALL";
   });
+  // Just added a bin: confirm it, and fetch it by its location in case it's outside the bins around you
+  const [added, setAdded] = useState(() => params.get("added") === "1");
+  const [addedAt] = useState<LatLng | null>(() => {
+    const lat = Number(params.get("lat")), lng = Number(params.get("lng"));
+    return params.get("lat") && params.get("lng") && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  });
+  const [pinned, setPinned] = useState<Bin | null>(null);
   const [focus, setFocus] = useState(0);
+  // Open where you were last time (kept on this device); India-wide on a first visit
+  const [start] = useState<LatLng | null>(() => lastKnownLocation());
+  const [watchKey, setWatchKey] = useState(0);
+  const loadedAround = useRef<LatLng | null>(null);
+
+  // Navigation to a bin
+  const [navBin, setNavBin] = useState<Bin | null>(null);
+  const [route, setRoute] = useState<WalkRoute | null>(null);
+  const [follow, setFollow] = useState(false);
+  const routedAt = useRef(0);
+  const routeRequest = useRef(0); // ignores route answers that arrive after you ended or rerouted
+  const wakeLock = useRef<WakeLockSentinel | null>(null);
 
   const load = useCallback(async (at: LatLng) => {
     setLoading(true);
@@ -49,35 +83,144 @@ export default function NearbyPage() {
     }
   }, []);
 
-  const locate = useCallback(async () => {
-    try {
-      const at = await currentPosition();
-      setLocError(null);
-      setYou(at);
-      setFocus((f) => f + 1);
-      await load(at);
-    } catch (err) {
-      setLocError(err instanceof Error ? err.message : "Couldn't find your location.");
-      setLoading(false);
-    }
-  }, [load]);
-
-  // First location fix on load
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the device location (an external system)
-    locate();
-  }, [locate]);
-
-  const visible = useMemo(
-    () => (filter === "ALL" ? bins : bins.filter((b) => b.type === filter || b.type === "BOTH")),
-    [bins, filter]
+  const reload = useCallback(
+    (at: LatLng) => {
+      loadedAround.current = at;
+      load(at);
+    },
+    [load]
   );
+
+  // Follow your live position. The first fix centres the map; bins reload after you move ~300 m.
+  useEffect(() => {
+    let first = true;
+    return watchLocation(
+      (fix) => {
+        const at = { lat: fix.lat, lng: fix.lng };
+        setLocError(null);
+        setYou({ ...at, heading: fix.heading });
+        if (first) {
+          first = false;
+          setFocus((f) => f + 1);
+        }
+        if (!loadedAround.current || metresBetween(loadedAround.current, at) > 300) reload(at);
+      },
+      (message) => {
+        setLocError(message);
+        setLoading(false);
+      }
+    );
+  }, [watchKey, reload]);
+
+  const routeTo = useCallback((from: LatLng, bin: Bin) => {
+    routedAt.current = Date.now();
+    const request = ++routeRequest.current;
+    walkingRoute(from, { lat: bin.latitude, lng: bin.longitude }).then((r) => request === routeRequest.current && setRoute(r));
+  }, []);
+
+  function startNavigation(bin: Bin) {
+    setSelectedId(bin.id);
+    setNavBin(bin);
+    setRoute(null);
+    setFollow(true);
+    if (you) routeTo(you, bin);
+    // Keep the screen on while walking (not every browser allows it)
+    navigator.wakeLock?.request("screen").then((lock) => (wakeLock.current = lock), () => {});
+  }
+
+  function endNavigation() {
+    routeRequest.current++;
+    setNavBin(null);
+    setRoute(null);
+    setFollow(false);
+    wakeLock.current?.release().catch(() => {});
+    wakeLock.current = null;
+  }
+
+  // While navigating: route as soon as we know where you are, and reroute when you stray
+  useEffect(() => {
+    if (!navBin || !you) return;
+    const stale = Date.now() - routedAt.current > REROUTE_EVERY_MS;
+    if (!route ? stale || !routedAt.current : stale && routeProgress(route, you).offRoute > OFF_ROUTE_M) routeTo(you, navBin);
+  }, [navBin, you, route, routeTo]);
+
+  useEffect(() => () => void wakeLock.current?.release().catch(() => {}), []);
+
+  useEffect(() => {
+    if (!addedAt || !selectedId) return;
+    fetchNearby(addedAt).then((near) => setPinned(near.find((b) => b.id === selectedId) ?? null), () => {});
+    // Drop the one-off params so a refresh doesn't confirm again
+    window.history.replaceState(null, "", `/app?bin=${selectedId}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the bin you just added
+  }, [addedAt]);
+
+  useEffect(() => {
+    if (!added) return;
+    const t = setTimeout(() => setAdded(false), 6000);
+    return () => clearTimeout(t);
+  }, [added]);
+
+  // Distances from where you are now (the server's are from where the list was loaded), nearest first
+  const visible = useMemo(() => {
+    const all = pinned && !bins.some((b) => b.id === pinned.id) ? [...bins, pinned] : bins;
+    const shown = filter === "ALL" ? all : all.filter((b) => b.type === filter || b.type === "BOTH");
+    if (!you) return shown;
+    return shown.map((b) => ({ ...b, distance: metresBetween(you, b) })).sort((a, b) => a.distance - b.distance);
+  }, [bins, pinned, filter, you]);
   const selected = visible.find((b) => b.id === selectedId) ?? null;
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-map">
-      <BinMap you={you ?? FALLBACK} bins={visible} selectedId={selectedId} onSelect={setSelectedId} focus={focus} />
+      <BinMap
+        you={you}
+        start={start ?? INDIA_VIEW.center}
+        startZoom={start ? 15 : INDIA_VIEW.zoom}
+        bins={visible}
+        selectedId={selectedId}
+        onSelect={(id) => !navBin && setSelectedId(id)}
+        focus={focus}
+        route={route?.line ?? null}
+        follow={follow}
+        onUserMove={() => navBin && setFollow(false)}
+      />
 
+      {navBin && (
+        <>
+          <NavigationPanel bin={navBin} route={route} you={you} onEnd={endNavigation} />
+          {!follow && (
+            <Button
+              size="lg"
+              onClick={() => setFollow(true)}
+              className={`absolute bottom-60 left-1/2 z-20 -translate-x-1/2 md:bottom-6 md:left-auto md:right-6 md:translate-x-0 ${floating}`}
+            >
+              <LocateFixedIcon data-icon="inline-start" />
+              Re-centre
+            </Button>
+          )}
+        </>
+      )}
+
+      {added && (
+        <div role="status" className="absolute inset-x-4 top-4 z-30 flex items-center gap-3 rounded-2xl bg-primary p-4 text-primary-foreground shadow-sheet md:right-auto md:left-[448px] md:w-100">
+          <CheckCircle2Icon className="size-6 shrink-0 text-wet" aria-hidden="true" />
+          <p className="flex-1">
+            <span className="font-medium">Bin added.</span> Thanks, it&apos;s on the map for everyone now.
+          </p>
+          <button type="button" onClick={() => setAdded(false)} className="rounded-full px-2 text-sm underline-offset-4 hover:underline">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {!you && !locError && (
+        <div className="pointer-events-none absolute inset-x-0 top-1/3 z-10 flex justify-center md:left-[432px]">
+          <span className="flex items-center gap-3 rounded-full bg-card px-5 py-3 shadow-float">
+            <Spinner /> Finding your location…
+          </span>
+        </div>
+      )}
+
+      {!navBin && (<>
       {/* Top bar */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-3 p-4 md:left-[432px]">
         <Link
@@ -130,7 +273,7 @@ export default function NearbyPage() {
       <Button
         size="icon-lg"
         aria-label="Show my location"
-        onClick={() => (you ? (setFocus((f) => f + 1), load(you)) : locate())}
+        onClick={() => (you ? (setFocus((f) => f + 1), reload(you)) : setWatchKey((k) => k + 1))}
         className={`absolute top-[4.25rem] right-4 z-10 md:top-auto md:right-6 md:bottom-6 ${floating}`}
       >
         <LocateFixedIcon />
@@ -148,7 +291,7 @@ export default function NearbyPage() {
             onClick={() => {
               setLocError(null);
               setLoading(true);
-              locate();
+              setWatchKey((k) => k + 1);
             }}
           >
             Try again
@@ -158,7 +301,7 @@ export default function NearbyPage() {
         <section className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-4 rounded-t-3xl bg-card p-6 shadow-sheet md:inset-auto md:bottom-4 md:left-4 md:w-[400px] md:rounded-2xl">
           <h2 className="text-xl">Couldn&apos;t load bins</h2>
           <p className="text-muted-foreground">{loadError}</p>
-          <Button size="xl" onClick={() => you && load(you)}>Try again</Button>
+          <Button size="xl" onClick={() => you && reload(you)}>Try again</Button>
         </section>
       ) : (
         <BinPanel
@@ -169,11 +312,13 @@ export default function NearbyPage() {
           onReported={(removed) => {
             if (removed && you) {
               setSelectedId(null);
-              load(you);
+              reload(you);
             }
           }}
+          onNavigate={startNavigation}
         />
       )}
+      </>)}
     </div>
   );
 }

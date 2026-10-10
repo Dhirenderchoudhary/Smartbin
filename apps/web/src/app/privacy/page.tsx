@@ -20,6 +20,7 @@ const sections: { title: string; body: React.ReactNode }[] = [
         <li><strong>Missing reports:</strong> your GPS position at the moment you report a bin missing, the time, and that the report came from you. We use it to confirm you were within 20 metres of the bin.</li>
         <li><strong>Your monthly counts:</strong> how many bins you added and reports you made this month, to apply the monthly limits.</li>
         <li><strong>Searching nearby:</strong> your location is sent to find the closest bins. We don&apos;t store it.</li>
+        <li><strong>Directions:</strong> when you ask for walking directions, your location and the bin&apos;s are sent to a routing service (Amazon Location Service, or the OpenStreetMap routing service run by FOSSGIS) to plan the walk. We don&apos;t store your route.</li>
       </ul>
     ),
   },
@@ -55,7 +56,13 @@ const sections: { title: string; body: React.ReactNode }[] = [
   },
   {
     title: "Cookies and storage",
-    body: <p>We keep your sign-in session in your browser&apos;s storage. We don&apos;t use advertising or tracking cookies.</p>,
+    body: (
+      <p>
+        We keep your sign-in session, your light or dark setting, and the last place the map saw you in your
+        browser&apos;s storage, so the map opens where you were. Your last location stays on your device and isn&apos;t
+        sent to us. We don&apos;t use advertising or tracking cookies.
+      </p>
+    ),
   },
   {
     title: "Your choices",
