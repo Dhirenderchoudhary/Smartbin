@@ -107,7 +107,39 @@ Phone (≤ md)                         Desktop (md+)
 
 ## Landing page (`/`)
 
-Editorial and type-led: big Inter Tight headlines ("Where's the nearest dustbin?", "Green for wet, blue for dry"), illustrations in `components/landing/illustrations.tsx` (the hero route draws once on load with `route-draw`, `pin-in` and `rise-in` in `globals.css`), and a black footer. There's only one motion moment, on load, and nothing animates on scroll.
+The page reads as one short walk to a bin, in this order:
+1. **Hero:** the question, plus a map you can move around in.
+2. **Street photo:** a real street.
+3. **Wet and dry:** what each bin takes.
+4. **Scroll story:** the walk in the app.
+5. **Get the app:** `#get-the-app`.
+6. **Add a bin:** three steps.
+7. **The rules.**
+8. **Admin:** the dashboard.
+9. **Call to action**, then the footer.
+
+It's built from `components/landing/`:
+
+| File | What |
+|---|---|
+| `LiveMap.tsx` | The signature piece. **Your cursor is "you"** (on touch screens, a tap is). The nearest bin grows, a walking route draws to it, and the card shows its name, type and distance |
+| `Frames.tsx` | `PhoneFrame` and `BrowserFrame`, plus `Screen`, which shows real app screenshots from `public/landing/` in both themes and lets the site theme pick one |
+| `ScrollStory.tsx` | A sticky phone whose screen changes with the step in the middle of the window (`lg+`); on phones each step has its own screen. Also `ParallaxPhoto` |
+| `Motion.tsx` | `MotionRoot` (`LazyMotion` + `MotionConfig reducedMotion="user"`), `Reveal` (headings rise in once), `Tilt` (phones lean towards the cursor), `Magnetic` (main buttons lean towards the cursor), `useFinePointer` |
+| `AppBadges.tsx` | Google Play / App Store buttons from `SITE.appLinks` in `lib/site.ts`; an empty link shows "Coming soon" and goes nowhere |
+| `illustrations.tsx` | `Streets`, `Pin`, `StreetBin`, `RuleDiagram`: the SVG drawings |
+
+**Motion rules:**
+- Motion uses `motion` (Framer Motion) and appears only where it explains something: the route to the nearest bin, the app's screens following the story, and the phones turning towards you.
+- **Cursor effects need a mouse or trackpad** (`useFinePointer`).
+- **Reduced motion:** everything is still or jumps straight to its end state.
+- **Without JavaScript** the page is complete, with no motion. A `<noscript>` rule shows the `data-reveal` headings, and the Find a bin form is a plain GET to `/app`.
+- Don't add fade-ins to every block, scroll-jacking or a custom cursor.
+
+**Images:**
+- **Screenshots** of the real app use the demo data. Re-take them when the app's look changes.
+- **Photos** come from Wikimedia Commons. CC BY-SA photos must show their credit on the page; `public/landing/CREDITS.md` lists all sources.
+- Serve everything through `next/image` as WebP.
 
 ## Admin
 

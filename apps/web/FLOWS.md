@@ -134,6 +134,10 @@ flowchart TD
 - If the pin is over 100 m from you: "The pin is 350 m from you. Make sure it's on the right bin."
 - Registrations count against the monthly quota (default 10). Only successful ones count.
 
+## Get the app
+
+The header's **Get the app** pill (from `md` up) and the footer link go to `/#get-the-app` on the landing page. The Google Play and App Store buttons there read `SITE.appLinks` in `src/lib/site.ts`. While a link is empty, its button says "Coming soon" and does nothing; paste the store URL there once the app is published. "Use SmartBin in your browser" goes to `/app`.
+
 ## Account (`/app/me`)
 
 Shows your email and role, **This month** (bins added and missing reports left, and the reset date from `GET /me/quota`), **Appearance** (Light / Dark / System), **Testing** (local mode only) and **Sign out**, which goes back to `/`.
