@@ -208,8 +208,8 @@ Content-Type: image/jpeg      ← must match the contentType from step 1
 
 ### `GET /dustbins/nearby?lat=28.61&lng=77.20&radius=500`
 
-- `lat` and `lng` are required. `radius` is optional, in metres, 1–5000.
-- **With `radius`:** every bin within that distance, nearest first.
+- `lat` and `lng` are required. `radius` is optional, in metres, 1–50000.
+- **With `radius`:** every bin within that distance, nearest first, up to the **500 nearest**.
 - **Without `radius`:** the **5 nearest** bins.
 - `200`: an array of **Bin**.
 

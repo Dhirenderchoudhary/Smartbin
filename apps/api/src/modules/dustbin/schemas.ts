@@ -14,7 +14,7 @@ export const uploadUrlQuery = z.object({
 export const nearbyQuery = z.object({
   lat: queryLat,
   lng: queryLng,
-  radius: z.coerce.number().int().min(1).max(5000).optional(),
+  radius: z.coerce.number().int().min(1).max(50000).optional(),
 });
 
 export const createBody = z.object({

@@ -17,6 +17,8 @@ const DUPLICATE_RADIUS_M = 15;
 const REPORT_MAX_DISTANCE_M = 20;
 // Looser than missing reports: an overflowing bin is obvious from across the road
 const ISSUE_MAX_DISTANCE_M = 50;
+// ponytail: nearest 500 only; cluster on the server (or vector tiles) once areas get denser than that
+const NEARBY_LIMIT = 500;
 
 // Open = not resolved yet. Bins get emptied without anyone telling us, so FULL lapses after a day.
 const openIssue = sql`${binIssues.resolvedAt} is null
@@ -75,10 +77,8 @@ export async function getNearbyBins(lat: number, lng: number, radiusMeters?: num
     .where(conditions)
     .orderBy(distance);
 
-  let finalQuery: any = query;
-  if (radiusMeters === undefined) {
-    finalQuery = query.limit(5); // If no radius specified, return 5 closest
-  }
+  // No radius: the 5 closest. With a radius: everything in it, up to NEARBY_LIMIT nearest
+  const finalQuery: any = query.limit(radiusMeters === undefined ? 5 : NEARBY_LIMIT);
 
   const activeBins: Array<Awaited<typeof query>[number]> = await finalQuery;
 
