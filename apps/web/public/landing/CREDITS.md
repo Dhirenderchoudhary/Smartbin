@@ -12,4 +12,4 @@ The images are resized and converted to WebP and are otherwise unchanged. The CC
 
 ## App screenshots
 
-`app-*-light|dark.webp` (the Expo app, 390×844 at 2×) and `admin-light|dark.webp` (the admin overview, 1280×800 at 2×) are SmartBin's own screens. They use the demo data from `pnpm --filter @smartbin/api seed:demo`, around Connaught Place, New Delhi.
+`app-*-light|dark.webp` (the Expo app, 390×844 at 2×) and `admin-light|dark.webp` (the admin overview, 1280×800 at 2×) are SmartBin's own screens. The bin photo inside `app-add-details-*` is a crop of `photo-wet-dry-bins.webp` (Soumendra Kumar Sahoo, CC BY-SA 4.0). They use the demo data from `pnpm --filter @smartbin/api seed:demo`, around Connaught Place, New Delhi.
