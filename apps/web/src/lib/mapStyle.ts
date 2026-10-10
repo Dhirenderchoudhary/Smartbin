@@ -6,8 +6,8 @@
 //   NEXT_PUBLIC_AWS_MAP_STYLE   Standard | Monochrome | Hybrid | Satellite, default Monochrome
 //   NEXT_PUBLIC_MAP_STYLE_LIGHT / _DARK   fallback style URLs, default OpenFreeMap
 
-const AWS_KEY = process.env.NEXT_PUBLIC_AWS_MAP_KEY;
-const AWS_REGION = process.env.NEXT_PUBLIC_AWS_REGION ?? "ap-south-1";
+export const AWS_KEY = process.env.NEXT_PUBLIC_AWS_MAP_KEY;
+export const AWS_REGION = process.env.NEXT_PUBLIC_AWS_REGION ?? "ap-south-1";
 const AWS_STYLE = process.env.NEXT_PUBLIC_AWS_MAP_STYLE ?? "Monochrome";
 
 const FALLBACK = {
