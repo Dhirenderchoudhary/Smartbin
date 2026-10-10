@@ -12,7 +12,23 @@ export interface Bin {
   createdAt: string;
   distance: number;
   imageUrl: string;
+  /** Open problems, one per type, most recent first */
+  issues: BinIssue[];
 }
+
+export type IssueType = "FULL" | "BROKEN" | "DIRTY" | "OTHER";
+
+export interface BinIssue {
+  type: IssueType;
+  reports: number;
+  lastReportedAt: string;
+  note: string | null;
+}
+
+export const ISSUE_LABEL: Record<IssueType, string> = { FULL: "Full", BROKEN: "Broken", DIRTY: "Dirty", OTHER: "Problem reported" };
+
+// Same as the API: you need to be this close to report or clear a problem
+export const ISSUE_RADIUS_M = 50;
 
 export interface LatLng {
   lat: number;
@@ -38,6 +54,31 @@ export function reportMissing(binId: string, at: LatLng) {
     `/dustbins/${binId}/report-missing`,
     { method: "POST", body: at }
   );
+}
+
+export function reportIssue(binId: string, type: IssueType, at: LatLng, note?: string) {
+  return api<{ id: string; issues: BinIssue[] }>(`/dustbins/${binId}/issues`, {
+    method: "POST",
+    body: { type, lat: at.lat, lng: at.lng, ...(note && { note }) },
+  });
+}
+
+export function resolveIssue(binId: string, type: IssueType, at: LatLng) {
+  return api<{ id: string; resolved: number; issues: BinIssue[] }>(`/dustbins/${binId}/issues/resolve`, {
+    method: "POST",
+    body: { type, lat: at.lat, lng: at.lng },
+  });
+}
+
+const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+// "5 minutes ago", "yesterday"
+export function timeAgo(iso: string): string {
+  const minutes = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+  if (minutes > -1) return "just now";
+  if (minutes > -60) return relative.format(minutes, "minute");
+  if (minutes > -60 * 24) return relative.format(Math.round(minutes / 60), "hour");
+  return relative.format(Math.round(minutes / 60 / 24), "day");
 }
 
 export function formatDistance(metres: number): string {

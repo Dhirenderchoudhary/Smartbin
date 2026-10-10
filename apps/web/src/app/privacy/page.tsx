@@ -18,6 +18,7 @@ const sections: { title: string; body: React.ReactNode }[] = [
         <li><strong>Your account:</strong> your email address and a password, held by our sign-in provider (Amazon Cognito). We never see your password.</li>
         <li><strong>Bins you add:</strong> the photo, the bin&apos;s location, its waste type and name, the time, and that it was added by you.</li>
         <li><strong>Missing reports:</strong> your GPS position at the moment you report a bin missing, the time, and that the report came from you. We use it to confirm you were within 20 metres of the bin.</li>
+        <li><strong>Problem reports:</strong> when you report a bin as full, broken, dirty or something else, or say it&apos;s been sorted, we keep the problem, any note you write, your GPS position at that moment and that it came from you. We use the position to confirm you were within 50 metres. Other users see the problem and when it was reported, not who reported it.</li>
         <li><strong>Your monthly counts:</strong> how many bins you added and reports you made this month, to apply the monthly limits.</li>
         <li><strong>Searching nearby:</strong> your location is sent to find the closest bins. We don&apos;t store it.</li>
         <li><strong>Directions:</strong> when you ask for walking directions, your location and the bin&apos;s are sent to a routing service (Amazon Location Service, or the OpenStreetMap routing service run by FOSSGIS) to plan the walk. We don&apos;t store your route.</li>

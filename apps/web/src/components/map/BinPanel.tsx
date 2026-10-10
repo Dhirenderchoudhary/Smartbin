@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon, CheckCircle2Icon, FlagIcon, NavigationIcon } from "lucide-react";
+import { AlertCircleIcon, AlertTriangleIcon, CheckCircle2Icon, CheckIcon, FlagIcon, NavigationIcon } from "lucide-react";
 import { useState } from "react";
 import {
   AlertDialog,
@@ -16,15 +16,25 @@ import { Logo } from "@/components/Logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { ApiError } from "@/lib/api";
 import {
   currentPosition,
   formatDistance,
+  ISSUE_LABEL,
+  ISSUE_RADIUS_M,
+  reportIssue,
   reportMissing,
+  resolveIssue,
+  timeAgo,
   TYPE_LABEL,
   walkMinutes,
   type Bin,
+  type BinIssue,
   type BinType,
+  type IssueType,
+  type LatLng,
 } from "@/lib/bins";
 
 export function TypeBadges({ type }: { type: BinType }) {
@@ -41,32 +51,120 @@ function TypeDot({ type }: { type: BinType }) {
   return <span className={`size-3 shrink-0 rounded-full ${bg}`} aria-hidden="true" />;
 }
 
+// "Missing" goes through its own endpoint (enough reports take the bin off the map)
+type Problem = IssueType | "MISSING";
+
+const PROBLEMS: { value: Problem; title: string; hint: string }[] = [
+  { value: "FULL", title: "It's full", hint: "Overflowing, or no room for more" },
+  { value: "BROKEN", title: "It's broken", hint: "Damaged, lid missing or knocked over" },
+  { value: "DIRTY", title: "It's dirty", hint: "Smelly, or rubbish dumped around it" },
+  { value: "MISSING", title: "It's not here", hint: "The bin is gone. After enough reports it comes off the map." },
+  { value: "OTHER", title: "Something else", hint: "Tell people what's wrong" },
+];
+
+// What the "it's sorted" button says for each problem
+const SORTED: Record<IssueType, string> = { FULL: "Emptied", BROKEN: "Fixed", DIRTY: "Cleaned", OTHER: "Sorted" };
+
 type Outcome = { tone: "ok" | "error"; text: string } | null;
 
-function SelectedBin({ bin, onReported, onNavigate }: { bin: Bin; onReported: (removed: boolean) => void; onNavigate: (bin: Bin) => void }) {
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [outcome, setOutcome] = useState<Outcome>(null);
+function errorText(err: unknown, radius: number): string {
+  if (err instanceof ApiError && err.code === "TOO_FAR") return `You need to be within ${radius} m of the bin. Walk over and try again.`;
+  return err instanceof Error ? err.message : "Couldn't send that. Try again.";
+}
 
-  async function report() {
+function IssueList({ bin, busy, onSorted }: { bin: Bin; busy: IssueType | null; onSorted: (type: IssueType) => void }) {
+  return (
+    <ul className="flex flex-col gap-2" aria-label="Problems reported">
+      {bin.issues.map((issue: BinIssue) => (
+        <li key={issue.type} className="flex items-center gap-3 rounded-2xl bg-warning/20 p-3">
+          <AlertTriangleIcon className="size-5 shrink-0" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">{issue.type === "OTHER" && issue.note ? issue.note : ISSUE_LABEL[issue.type]}</p>
+            <p className="text-sm text-muted-foreground">
+              Reported {timeAgo(issue.lastReportedAt)}
+              {issue.reports > 1 && `, by ${issue.reports} people`}
+            </p>
+          </div>
+          <Button size="sm" variant="secondary" disabled={!!busy} onClick={() => onSorted(issue.type)} aria-label={`Mark as ${SORTED[issue.type].toLowerCase()}`}>
+            {busy === issue.type ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}
+            {SORTED[issue.type]}
+          </Button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SelectedBin({
+  bin,
+  you,
+  onReported,
+  onIssues,
+  onNavigate,
+}: {
+  bin: Bin;
+  you: LatLng | null;
+  onReported: (removed: boolean) => void;
+  onIssues: (binId: string, issues: BinIssue[]) => void;
+  onNavigate: (bin: Bin) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [problem, setProblem] = useState<Problem | null>(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [sorting, setSorting] = useState<IssueType | null>(null);
+  const [outcome, setOutcome] = useState<Outcome>(null);
+  // The map is already tracking you; only wait for a fresh GPS fix if it isn't yet
+  const here = async () => you ?? (await currentPosition());
+
+  function openReport() {
+    setProblem(null);
+    setNote("");
+    setOpen(true);
+  }
+
+  async function send() {
+    if (!problem) return;
     setBusy(true);
     try {
-      const at = await currentPosition();
-      const r = await reportMissing(bin.id, at);
-      setOutcome({
-        tone: "ok",
-        text: r.removed
-          ? "Reported. This bin had enough reports and is now off the map."
-          : `Reported. ${r.missingReports} of ${r.threshold} reports needed to take it off the map.`,
-      });
-      onReported(r.removed);
+      const at = await here();
+      if (problem === "MISSING") {
+        const r = await reportMissing(bin.id, at);
+        setOutcome({
+          tone: "ok",
+          text: r.removed
+            ? "Reported. This bin had enough reports and is now off the map."
+            : `Reported. ${r.missingReports} of ${r.threshold} reports needed to take it off the map.`,
+        });
+        onReported(r.removed);
+      } else {
+        const r = await reportIssue(bin.id, problem, at, note.trim());
+        onIssues(bin.id, r.issues);
+        setOutcome({ tone: "ok", text: "Reported. People nearby will see it before they walk over." });
+      }
     } catch (err) {
-      setOutcome({ tone: "error", text: err instanceof Error ? err.message : "Couldn't send the report. Try again." });
+      setOutcome({ tone: "error", text: errorText(err, problem === "MISSING" ? 20 : ISSUE_RADIUS_M) });
     } finally {
       setBusy(false);
-      setConfirming(false);
+      setOpen(false);
     }
   }
+
+  async function sorted(type: IssueType) {
+    setSorting(type);
+    try {
+      const r = await resolveIssue(bin.id, type, await here());
+      onIssues(bin.id, r.issues);
+      setOutcome({ tone: "ok", text: "Thanks for letting everyone know." });
+    } catch (err) {
+      setOutcome({ tone: "error", text: errorText(err, ISSUE_RADIUS_M) });
+    } finally {
+      setSorting(null);
+    }
+  }
+
+  const missing = problem === "MISSING";
+  const ready = problem && (problem !== "OTHER" || note.trim());
 
   return (
     <div className="flex flex-col gap-4">
@@ -83,6 +181,8 @@ function SelectedBin({ bin, onReported, onNavigate }: { bin: Bin; onReported: (r
           )}
         </div>
       </div>
+
+      {bin.issues.length > 0 && <IssueList bin={bin} busy={sorting} onSorted={sorted} />}
 
       <div className="flex items-baseline gap-2">
         <span className="font-heading text-3xl font-bold">{formatDistance(bin.distance)}</span>
@@ -101,26 +201,60 @@ function SelectedBin({ bin, onReported, onNavigate }: { bin: Bin; onReported: (r
           <NavigationIcon data-icon="inline-start" />
           Directions
         </Button>
-        <Button size="xl" variant="secondary" onClick={() => setConfirming(true)}>
+        <Button size="xl" variant="secondary" onClick={openReport}>
           <FlagIcon data-icon="inline-start" />
-          Report missing
+          Report a problem
         </Button>
       </div>
 
-      <AlertDialog open={confirming} onOpenChange={(open) => !busy && setConfirming(open)}>
-        <AlertDialogContent>
+      <AlertDialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
+        <AlertDialogContent className="data-[size=default]:max-w-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Report this bin as missing?</AlertDialogTitle>
+            <AlertDialogTitle>What&apos;s wrong with this bin?</AlertDialogTitle>
             <AlertDialogDescription>
-              Only report it if you&apos;re at the spot and the bin isn&apos;t there. You need to be within 20 metres. After enough
-              reports, it comes off the map.
+              Report it from the spot. You need to be within {missing ? 20 : ISSUE_RADIUS_M} m of the bin.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="sr-only">Problem</legend>
+            {PROBLEMS.map((p) => (
+              <label
+                key={p.value}
+                className="flex cursor-pointer items-start gap-3 rounded-xl bg-muted p-3 has-checked:bg-primary has-checked:text-primary-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring"
+              >
+                <input
+                  type="radio"
+                  name="problem"
+                  value={p.value}
+                  checked={problem === p.value}
+                  onChange={() => setProblem(p.value)}
+                  className="peer sr-only"
+                />
+                <span className="flex flex-col text-left">
+                  <span className="font-medium">{p.title}</span>
+                  <span className="text-sm opacity-75">{p.hint}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
+          {problem === "OTHER" && (
+            <Input
+              autoFocus
+              aria-label="What's wrong"
+              placeholder="e.g. Blocked by a parked cart"
+              maxLength={200}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" disabled={busy} onClick={report}>
+            <AlertDialogAction variant={missing ? "destructive" : "default"} disabled={busy || !ready} onClick={send}>
               {busy && <Spinner data-icon="inline-start" />}
-              Report missing
+              {missing ? "Report missing" : "Send report"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -132,16 +266,20 @@ function SelectedBin({ bin, onReported, onNavigate }: { bin: Bin; onReported: (r
 // Bottom sheet on phones, floating side panel on wider screens
 export function BinPanel({
   bins,
+  you,
   selected,
   onSelect,
   onReported,
+  onIssues,
   onNavigate,
   loading,
 }: {
   bins: Bin[];
+  you: LatLng | null;
   selected: Bin | null;
   onSelect: (id: string) => void;
   onReported: (removed: boolean) => void;
+  onIssues: (binId: string, issues: BinIssue[]) => void;
   onNavigate: (bin: Bin) => void;
   loading: boolean;
 }) {
@@ -169,7 +307,7 @@ export function BinPanel({
           </div>
         )}
 
-        {selected && <SelectedBin key={selected.id} bin={selected} onReported={onReported} onNavigate={onNavigate} />}
+        {selected && <SelectedBin key={selected.id} bin={selected} you={you} onReported={onReported} onIssues={onIssues} onNavigate={onNavigate} />}
 
         {!loading && others.length > 0 && (
           <div className="flex flex-col">
@@ -185,7 +323,10 @@ export function BinPanel({
                     <TypeDot type={bin.type} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{bin.name}</span>
-                      <span className="block text-sm text-muted-foreground">{TYPE_LABEL[bin.type]}</span>
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {TYPE_LABEL[bin.type]}
+                        {bin.issues.length > 0 && <Badge variant="warning">{ISSUE_LABEL[bin.issues[0].type]}</Badge>}
+                      </span>
                     </span>
                     <span className="font-medium">{formatDistance(bin.distance)}</span>
                   </button>

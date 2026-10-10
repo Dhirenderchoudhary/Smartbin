@@ -20,6 +20,7 @@ const badgeVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         wet: "bg-wet/15 text-wet",
         dry: "bg-dry/15 text-dry",
+        warning: "bg-warning text-warning-foreground",
       },
     },
     defaultVariants: {

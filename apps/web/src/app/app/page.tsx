@@ -11,7 +11,7 @@ import { NavigationPanel } from "@/components/map/NavigationPanel";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Spinner } from "@/components/ui/spinner";
-import { fetchNearby, INDIA_VIEW, lastKnownLocation, metresBetween, watchLocation, type Bin, type LatLng } from "@/lib/bins";
+import { fetchNearby, INDIA_VIEW, lastKnownLocation, metresBetween, watchLocation, type Bin, type BinIssue, type LatLng } from "@/lib/bins";
 import { routeProgress, walkingRoute, type WalkRoute } from "@/lib/routes";
 
 // Recalculate the route when you're this far off it (and not more often than every 10 s)
@@ -306,6 +306,7 @@ function NearbyPage() {
       ) : (
         <BinPanel
           bins={visible}
+          you={you}
           selected={selected}
           onSelect={setSelectedId}
           loading={loading}
@@ -314,6 +315,10 @@ function NearbyPage() {
               setSelectedId(null);
               reload(you);
             }
+          }}
+          onIssues={(id: string, issues: BinIssue[]) => {
+            setBins((list) => list.map((b) => (b.id === id ? { ...b, issues } : b)));
+            setPinned((p) => (p?.id === id ? { ...p, issues } : p));
           }}
           onNavigate={startNavigation}
         />

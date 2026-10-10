@@ -2,7 +2,7 @@
 
 import { type GeoJSONSource, LngLatBounds, type Map as MapLibre, Marker } from "maplibre-gl";
 import { useEffect, useRef } from "react";
-import type { Bin, LatLng } from "@/lib/bins";
+import { ISSUE_LABEL, type Bin, type LatLng } from "@/lib/bins";
 import { createMap } from "./createMap";
 
 const BIN_ICON =
@@ -22,11 +22,11 @@ function pinElement(bin: Bin, onSelect: (id: string) => void): { root: HTMLDivEl
   const root = document.createElement("div");
   const button = document.createElement("button");
   button.type = "button";
-  button.setAttribute("aria-label", `${bin.name}, ${Math.round(bin.distance)} metres away`);
   button.className =
-    "grid size-9 place-items-center rounded-full border-[3px] border-background shadow-float transition-transform data-[selected=true]:scale-125 data-[selected=true]:ring-2 data-[selected=true]:ring-foreground focus-visible:outline-2 focus-visible:outline-foreground";
+    "relative grid size-9 place-items-center rounded-full border-[3px] border-background shadow-float transition-transform data-[selected=true]:scale-125 data-[selected=true]:ring-2 data-[selected=true]:ring-foreground focus-visible:outline-2 focus-visible:outline-foreground";
   button.style.background = PIN_BG[bin.type];
-  button.innerHTML = BIN_ICON;
+  // Warning dot for bins with open problems (full, broken...), toggled as reports come in
+  button.innerHTML = BIN_ICON + '<span data-issue class="absolute -top-1 -right-1 hidden size-3.5 rounded-full border-2 border-background bg-warning"></span>';
   button.addEventListener("click", (e) => {
     e.stopPropagation();
     onSelect(bin.id);
@@ -168,9 +168,14 @@ export default function BinMap({
       }
     }
     for (const bin of bins) {
-      if (pins.current.has(bin.id)) continue;
-      const { root, button } = pinElement(bin, (id) => onSelectRef.current(id));
-      pins.current.set(bin.id, { button, marker: new Marker({ element: root }).setLngLat([bin.longitude, bin.latitude]).addTo(m) });
+      if (!pins.current.has(bin.id)) {
+        const { root, button } = pinElement(bin, (id) => onSelectRef.current(id));
+        pins.current.set(bin.id, { button, marker: new Marker({ element: root }).setLngLat([bin.longitude, bin.latitude]).addTo(m) });
+      }
+      const { button } = pins.current.get(bin.id)!;
+      const problems = bin.issues.map((i) => ISSUE_LABEL[i.type].toLowerCase()).join(", ");
+      button.setAttribute("aria-label", `${bin.name}, ${Math.round(bin.distance)} metres away${problems ? `, reported ${problems}` : ""}`);
+      button.querySelector("[data-issue]")!.classList.toggle("hidden", !bin.issues.length);
     }
   }, [bins]);
 
