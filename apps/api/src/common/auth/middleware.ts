@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import { cognitoVerifier } from "./verifier.js";
+import { fetchEmailFromCognito } from "./cognito.js";
 import { syncUserByCognitoSub } from "../../modules/user/service.js";
 import { ApiError } from "../http/ApiError.js";
 
@@ -40,12 +41,12 @@ export const authenticateToken: RequestHandler = async (
     const groups: string[] = payload["cognito:groups"] || [];
     const role: "USER" | "ADMIN" = groups.includes("ADMIN") ? "ADMIN" : "USER";
 
-    const dbUser = await syncUserByCognitoSub(sub, email, role);
+    const dbUser = await syncUserByCognitoSub(sub, email, role, () => fetchEmailFromCognito(token));
 
     req.user = {
       id: dbUser.id,
       sub,
-      email,
+      email: dbUser.email ?? email,
       groups,
       role,
     };

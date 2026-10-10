@@ -3,21 +3,10 @@ import { config } from "../config/config.js";
 
 const client = new BedrockRuntimeClient({ region: config.AWS_REGION });
 
-export async function verifyDustbinImage(imageUrl: string): Promise<boolean> {
-  // Fetch image bytes from the URL
-  const imageResponse = await fetch(imageUrl);
-  if (!imageResponse.ok) {
-    throw new Error("Failed to download image from URL for verification");
-  }
-  
-  const arrayBuffer = await imageResponse.arrayBuffer();
-  const imageBytes = new Uint8Array(arrayBuffer);
-  
-  const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+export async function verifyDustbinImageBedrock(imageBytes: Uint8Array, contentType: string): Promise<boolean> {
   let format = "jpeg";
   if (contentType.includes("png")) format = "png";
   if (contentType.includes("webp")) format = "webp";
-  if (contentType.includes("gif")) format = "gif";
 
   const prompt = `You are a strict AI verification agent. Look at this image. Analyze it and report whether it clearly contains a public dustbin, garbage bin, or trash can.`;
 

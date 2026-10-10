@@ -13,11 +13,8 @@ export class ApiResponse<T = any> {
     }
   }
 
+  // Errors go through ApiError + errorHandler so every failure has one shape
   public static success<T>(data: T, message = "Success", statusCode = 200): ApiResponse<T> {
     return new ApiResponse<T>(statusCode, message, data);
-  }
-
-  public static error(message: string, statusCode = 400): ApiResponse {
-    return new ApiResponse(statusCode, message);
   }
 }

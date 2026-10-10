@@ -10,17 +10,16 @@ const globalForDb = globalThis as unknown as { db?: Database };
 export function getDb() {
   if (globalForDb.db) return globalForDb.db;
 
-  const url = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/smartbin";
+  const url = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:15432/smartbin";
 
   const db = drizzle(postgres(url, { max: 10 }), { schema });
   globalForDb.db = db;
   return db;
 }
 
-export { bins, users } from "./schema.js";
-export { eq, sql, and } from "drizzle-orm";
+export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+export { bins, users, userMonthlyUsage, binEvents, BIN_EVENT_TYPES, type BinEventType } from "./schema.js";
+export { eq, sql, and, desc, asc, gt, ilike, count, getTableColumns } from "drizzle-orm";
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
-
-
-

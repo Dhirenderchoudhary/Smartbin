@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
+import { ZodError } from "zod";
 import { ApiError } from "../http/ApiError.js";
+import { config } from "../config/config.js";
 
 export function errorHandler(
   err: any,
@@ -13,6 +15,21 @@ export function errorHandler(
       error: {
         code: err.code,
         message: err.message,
+        ...(err.details && { details: err.details }),
+      },
+    });
+    return;
+  }
+
+  if (err instanceof ZodError) {
+    const issue = err.issues[0];
+    const field = issue?.path.join(".");
+    res.status(400).json({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: issue ? (field ? `${field}: ${issue.message}` : issue.message) : "Invalid request.",
+        details: { issues: err.issues },
       },
     });
     return;
@@ -23,7 +40,10 @@ export function errorHandler(
     success: false,
     error: {
       code: "INTERNAL_SERVER_ERROR",
-      message: err?.message || "An unexpected error occurred.",
+      message:
+        config.NODE_ENV === "production"
+          ? "An unexpected error occurred."
+          : err?.message || "An unexpected error occurred.",
     },
   });
 }

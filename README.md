@@ -1,20 +1,18 @@
 # Smartbin
 
-Next.js React monorepo. Postgres via Drizzle.
+Backend and admin for SmartBin. Postgres via Drizzle.
 
-- `apps/web` — Next.js + React app
+- `apps/api` — Express + TypeScript API (Cognito auth, S3 uploads, AI image check, admin endpoints)
 - `packages/db` — Drizzle schema and client
+- `docs/api.md` — **API reference for the mobile app and admin dashboard**
+- `apps/web` — placeholder; the admin dashboard will be a React app
 
 Mobile is a separate repo: `Smartbin-Mobile` (Expo).
 
 ```sh
-cp .env.example .env
-docker compose up -d
-pnpm install
-pnpm db:push
-pnpm dev
+docker compose up -d                    # Postgres on localhost:15432
+cd packages/db && npx drizzle-kit push  # create/update tables
+cd ../../apps/api && npm install
+cp .env.example .env                    # fill in Cognito, S3 and OpenAI values
+npm run dev                             # http://localhost:3000/v1/health
 ```
-
-App runs at http://localhost:3000.
-
-Production is a Next.js server (`pnpm build && pnpm start`) with `DATABASE_URL` pointing at Postgres.

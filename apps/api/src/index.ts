@@ -8,6 +8,7 @@ import { errorHandler } from "./common/errors/errorHandler.js";
 import * as HealthController from "./modules/health/controller.js";
 import * as UserController from "./modules/user/controller.js";
 import * as DustbinController from "./modules/dustbin/controller.js";
+import * as AdminController from "./modules/admin/controller.js";
 
 const app = express();
 
@@ -32,7 +33,17 @@ apiRouter.post("/dustbins", authenticateToken, DustbinController.create);
 apiRouter.post("/dustbins/:id/report-missing", authenticateToken, DustbinController.reportMissing);
 
 // --- Admin Endpoints ---
-apiRouter.get("/admin/ping", authenticateToken, requireAdmin, UserController.adminPing);
+const adminOnly = [authenticateToken, requireAdmin];
+apiRouter.get("/admin/ping", adminOnly, UserController.adminPing);
+apiRouter.get("/admin/stats", adminOnly, AdminController.stats);
+apiRouter.get("/admin/stats/timeseries", adminOnly, AdminController.timeseries);
+apiRouter.get("/admin/bins", adminOnly, AdminController.bins);
+apiRouter.get("/admin/bins/map", adminOnly, AdminController.binsMap);
+apiRouter.get("/admin/bins/:id", adminOnly, AdminController.binDetails);
+apiRouter.patch("/admin/bins/:id", adminOnly, AdminController.patchBin);
+apiRouter.delete("/admin/bins/:id", adminOnly, AdminController.removeBin);
+apiRouter.get("/admin/events", adminOnly, AdminController.events);
+apiRouter.get("/admin/users", adminOnly, AdminController.usersList);
 
 // Mount single router under /v1
 app.use("/v1", apiRouter);

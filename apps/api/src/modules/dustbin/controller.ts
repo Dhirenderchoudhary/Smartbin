@@ -2,16 +2,18 @@ import { Request, Response, NextFunction } from "express";
 import { getNearbyBins, createBin, reportMissingBin } from "./service.js";
 import { generateUploadUrl } from "../../common/storage/s3.js";
 import { ApiResponse } from "../../common/http/ApiResponse.js";
+import {
+  createBody,
+  nearbyQuery,
+  reportMissingBody,
+  reportMissingParams,
+  uploadUrlQuery,
+} from "./schemas.js";
 
 export async function getPresignedUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { contentType } = req.query;
-    if (!contentType || typeof contentType !== "string") {
-      res.status(400).json(ApiResponse.error("contentType query parameter is required (e.g., image/jpeg)"));
-      return;
-    }
-    
-    const result = await generateUploadUrl(contentType);
+    const { contentType } = uploadUrlQuery.parse(req.query);
+    const result = await generateUploadUrl(req.user!.id, contentType);
     res.status(200).json(ApiResponse.success(result, "Presigned URL generated successfully"));
   } catch (error) {
     next(error);
@@ -20,19 +22,7 @@ export async function getPresignedUrl(req: Request, res: Response, next: NextFun
 
 export async function getNearby(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const lat = parseFloat(req.query.lat as string);
-    const lng = parseFloat(req.query.lng as string);
-    const radius = req.query.radius ? parseInt(req.query.radius as string, 10) : undefined;
-
-    if (isNaN(lat) || isNaN(lng)) {
-      res.status(400).json(ApiResponse.error("Valid lat and lng query parameters are required."));
-      return;
-    }
-    if (radius !== undefined && isNaN(radius)) {
-      res.status(400).json(ApiResponse.error("If provided, radius must be a valid number in meters."));
-      return;
-    }
-
+    const { lat, lng, radius } = nearbyQuery.parse(req.query);
     const bins = await getNearbyBins(lat, lng, radius);
     res.status(200).json(ApiResponse.success(bins));
   } catch (error) {
@@ -42,47 +32,27 @@ export async function getNearby(req: Request, res: Response, next: NextFunction)
 
 export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const newBin = await createBin(req.body);
+    const data = createBody.parse(req.body);
+    const newBin = await createBin(req.user!.id, data);
     res.status(201).json(ApiResponse.success(newBin, "Dustbin created successfully", 201));
-  } catch (error: any) {
-    if (error.message.includes("Image rejected") || error.message.includes("already exists within 15 meters")) {
-      res.status(400).json(ApiResponse.error(error.message, 400));
-      return;
-    }
+  } catch (error) {
     next(error);
   }
 }
 
 export async function reportMissing(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { id } = req.params;
-    if (!id) {
-      res.status(400).json(ApiResponse.error("Dustbin ID is required"));
-      return;
-    }
+    const { id } = reportMissingParams.parse(req.params);
+    const { lat, lng } = reportMissingBody.parse(req.body);
 
-    const { lat, lng } = req.body;
-    if (lat === undefined || lng === undefined || typeof lat !== "number" || typeof lng !== "number") {
-      res.status(400).json(ApiResponse.error("You must provide your current 'lat' and 'lng' as numbers in the request body to verify your location."));
-      return;
-    }
-    
-    const result = await reportMissingBin(id, lat, lng);
-    
-    const message = result.statusChanged 
-      ? `Dustbin marked as MISSING after reaching missing report threshold.`
-      : `Missing report logged successfully. Total reports: ${result.missingReports}`;
-      
+    const result = await reportMissingBin(req.user!.id, id, lat, lng);
+
+    const message = result.removed
+      ? `Dustbin removed after reaching ${result.threshold} missing reports.`
+      : `Missing report logged (${result.missingReports}/${result.threshold}).`;
+
     res.status(200).json(ApiResponse.success(result, message));
-  } catch (error: any) {
-    if (error.message === "Dustbin not found") {
-      res.status(404).json(ApiResponse.error("Dustbin not found", 404));
-      return;
-    }
-    if (error.message.includes("GPS Validation Failed")) {
-      res.status(400).json(ApiResponse.error(error.message, 400));
-      return;
-    }
+  } catch (error) {
     next(error);
   }
 }
