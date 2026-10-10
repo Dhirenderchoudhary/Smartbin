@@ -46,7 +46,7 @@ function youElement(): HTMLDivElement {
   // The cone points the way you're walking; shown once the device reports a heading
   el.innerHTML =
     '<span class="absolute inset-0 rounded-full bg-foreground/15 motion-safe:animate-ping"></span>' +
-    '<span data-cone class="absolute inset-0 hidden"><span class="absolute top-0 left-1/2 size-0 -translate-x-1/2 border-x-[7px] border-b-[11px] border-x-transparent border-b-foreground"></span></span>' +
+    '<span data-cone class="absolute inset-0 hidden"><span class="absolute top-0 left-1/2 size-0 -translate-x-1/2 border-x-[7px] border-b-11 border-x-transparent border-b-foreground"></span></span>' +
     '<span class="relative size-4 rounded-full border-[3px] border-background bg-foreground shadow-float"></span>';
   return el;
 }

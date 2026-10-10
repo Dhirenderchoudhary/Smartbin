@@ -205,8 +205,8 @@ export default function Home() {
               <ol className="mt-6 flex flex-col">
                 {history.map((event, i) => (
                   <li key={event.when} className="relative flex gap-4 pb-6 last:pb-0">
-                    {i < history.length - 1 && <span className="absolute top-4 left-[5px] h-full w-px bg-primary-foreground/25" aria-hidden="true" />}
-                    <span className={`relative mt-1.5 size-[11px] shrink-0 rounded-full ${event.tone}`} aria-hidden="true" />
+                    {i < history.length - 1 && <span className="absolute top-4 left-1.25 h-full w-px bg-primary-foreground/25" aria-hidden="true" />}
+                    <span className={`relative mt-1.5 size-2.75 shrink-0 rounded-full ${event.tone}`} aria-hidden="true" />
                     <div>
                       <p className="font-semibold">{event.what}</p>
                       <p className="text-sm text-primary-foreground/60">{event.when}</p>

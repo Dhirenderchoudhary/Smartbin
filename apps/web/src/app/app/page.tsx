@@ -226,7 +226,7 @@ function NearbyPage() {
       )}
 
       {added && (
-        <div role="status" className="absolute inset-x-4 top-4 z-30 flex items-center gap-3 rounded-2xl bg-primary p-4 text-primary-foreground shadow-sheet md:right-auto md:left-[448px] md:w-100">
+        <div role="status" className="absolute inset-x-4 top-4 z-30 flex items-center gap-3 rounded-2xl bg-primary p-4 text-primary-foreground shadow-sheet md:right-auto md:left-112 md:w-100">
           <CheckCircle2Icon className="size-6 shrink-0 text-wet" aria-hidden="true" />
           <p className="flex-1">
             <span className="font-medium">Bin added.</span> Thanks, it&apos;s on the map for everyone now.
@@ -238,13 +238,13 @@ function NearbyPage() {
       )}
 
       {tooWide && !navBin && (
-        <div className="pointer-events-none absolute inset-x-0 top-32 z-10 flex justify-center md:top-20 md:left-[432px]">
+        <div className="pointer-events-none absolute inset-x-0 top-32 z-10 flex justify-center md:top-20 md:left-108">
           <span className="rounded-full bg-card px-5 py-3 shadow-float">Zoom in to see bins</span>
         </div>
       )}
 
       {!you && !locError && (
-        <div className="pointer-events-none absolute inset-x-0 top-1/3 z-10 flex justify-center md:left-[432px]">
+        <div className="pointer-events-none absolute inset-x-0 top-1/3 z-10 flex justify-center md:left-108">
           <span className="flex items-center gap-3 rounded-full bg-card px-5 py-3 shadow-float">
             <Spinner /> Finding your location…
           </span>
@@ -253,7 +253,7 @@ function NearbyPage() {
 
       {!navBin && (<>
       {/* Top bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-3 p-4 md:left-[432px]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-3 p-4 md:left-108">
         <Link
           href="/"
           aria-label="SmartBin home"
@@ -286,7 +286,7 @@ function NearbyPage() {
       </div>
 
       {/* Filter chips under the top bar on phones */}
-      <div className="absolute top-[4.25rem] left-4 z-10 md:hidden">
+      <div className="absolute top-17 left-4 z-10 md:hidden">
         <ToggleGroup
           value={[filter]}
           onValueChange={(v) => v[0] && setFilter(v[0] as Filter)}
@@ -305,13 +305,13 @@ function NearbyPage() {
         size="icon-lg"
         aria-label="Show my location"
         onClick={() => (you ? (setFocus((f) => f + 1), reload(you)) : setWatchKey((k) => k + 1))}
-        className={`absolute top-[4.25rem] right-4 z-10 md:top-auto md:right-6 md:bottom-6 ${floating}`}
+        className={`absolute top-17 right-4 z-10 md:top-auto md:right-6 md:bottom-6 ${floating}`}
       >
         <LocateFixedIcon />
       </Button>
 
       {locError ? (
-        <section className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-4 rounded-t-3xl bg-card p-6 shadow-sheet md:inset-auto md:bottom-4 md:left-4 md:w-[400px] md:rounded-2xl">
+        <section className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-4 rounded-t-3xl bg-card p-6 shadow-sheet md:inset-auto md:bottom-4 md:left-4 md:w-100 md:rounded-2xl">
           <MapPinOffIcon className="size-8" aria-hidden="true" />
           <div className="flex flex-col gap-1">
             <h2 className="text-xl">Turn on location to see bins near you</h2>
@@ -329,7 +329,7 @@ function NearbyPage() {
           </Button>
         </section>
       ) : loadError ? (
-        <section className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-4 rounded-t-3xl bg-card p-6 shadow-sheet md:inset-auto md:bottom-4 md:left-4 md:w-[400px] md:rounded-2xl">
+        <section className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-4 rounded-t-3xl bg-card p-6 shadow-sheet md:inset-auto md:bottom-4 md:left-4 md:w-100 md:rounded-2xl">
           <h2 className="text-xl">Couldn&apos;t load bins</h2>
           <p className="text-muted-foreground">{loadError}</p>
           <Button size="xl" onClick={() => you && reload(you)}>Try again</Button>

@@ -288,7 +288,7 @@ export function BinPanel({
   return (
     <section
       aria-label="Nearby bins"
-      className="absolute inset-x-0 bottom-0 z-10 flex max-h-[46dvh] flex-col rounded-t-3xl bg-card shadow-sheet md:inset-y-4 md:right-auto md:left-4 md:max-h-none md:w-[400px] md:rounded-2xl"
+      className="absolute inset-x-0 bottom-0 z-10 flex max-h-[46dvh] flex-col rounded-t-3xl bg-card shadow-sheet md:inset-y-4 md:right-auto md:left-4 md:max-h-none md:w-100 md:rounded-2xl"
     >
       <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-accent md:hidden" aria-hidden="true" />
       <div className="flex flex-col gap-5 overflow-y-auto p-5 pt-4 md:pt-5">
