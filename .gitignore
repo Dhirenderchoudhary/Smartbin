@@ -10,3 +10,6 @@ dist
 coverage
 .vercel
 .nanocoder
+
+# Local photo storage (STORAGE_MODE=local)
+.local-uploads

@@ -111,6 +111,7 @@ Every response uses one of two shapes.
 | 403 | `TOO_FAR` | Reporting from more than 20 m away from the bin | "Move closer to the bin" |
 | 404 | `NOT_FOUND` | The bin doesn't exist or was removed | Refresh the list |
 | 404 | `INVALID_IMAGE_KEY` | Nothing was uploaded with this key | Upload again |
+| 409 | `ALREADY_REPORTED` | This user already reported this bin as missing (allowed again after an admin resets its reports) | "You've already reported this bin" |
 | 409 | `DUPLICATE_NEARBY` | A bin already exists within 15 m. `details.existingBinId` says which one | Offer to show the existing bin |
 | 422 | `NOT_A_BIN` | The AI didn't see a dustbin in the photo | Ask for a clearer photo |
 | 429 | `QUOTA_EXCEEDED` | The monthly limit is used up. **Checked before anything else**, so it comes back immediately, even if the body is invalid. `details` = `{ field, limit, resetsOn }` | Show `message`, e.g. "Your limit for bin registrations is exhausted. You have used all 10 for this month. It resets on 1 November." |
@@ -221,7 +222,9 @@ Send the user's **current GPS position**; it must be within 20 m of the bin.
 
 When `removed` is `true`, the bin was deleted, so take it off the map. `message` says either `"Missing report logged (2/3)."` or `"Dustbin removed after reaching 3 missing reports."`
 
-Possible errors: `400`, `403 TOO_FAR`, `404 NOT_FOUND`, `429 QUOTA_EXCEEDED`.
+Each user can report a bin **once**. A second report returns `409 ALREADY_REPORTED`.
+
+Possible errors: `400`, `403 TOO_FAR`, `404 NOT_FOUND`, `409 ALREADY_REPORTED`, `429 QUOTA_EXCEEDED`.
 
 ---
 
@@ -386,4 +389,17 @@ cd packages/db && npx drizzle-kit push
 cd ../../apps/api && npm install && npm run dev
 ```
 
-**CORS:** the API only accepts browser requests from addresses listed in `CORS_ORIGINS` in `apps/api/.env`. The default is `http://localhost:5173,http://localhost:3000`, so add your dev server's address if it's different.
+**Local mode (no AWS, no AI key).** The defaults in `apps/api/.env.example` run everything on your machine:
+
+| Setting | Local value | What it does | On AWS |
+|---|---|---|---|
+| `AUTH_MODE` | `dev` | No Cognito. Send the user's **email as the token**: `Authorization: Bearer you@example.com`. Emails in `DEV_ADMIN_EMAILS` (default `admin@smartbin.local`) are admins | `cognito` |
+| `STORAGE_MODE` | `local` | Photos are saved in `apps/api/.local-uploads`. `uploadUrl` and `imageUrl` point at the API itself; the upload step (`PUT` with `Content-Type`) is unchanged | `s3` |
+| `VISION_PROVIDER` | `off` | Every photo passes the AI check | `openai` or `bedrock` |
+| `API_PUBLIC_URL` | `http://localhost:3000` | Base of local photo links. **For Expo on a phone**, set it to your PC's LAN address, e.g. `http://192.168.1.10:3000` | not used |
+
+The API refuses to start with any of these local values when `NODE_ENV=production`.
+
+New database? Run `npx drizzle-kit push` in `packages/db` first.
+
+**CORS:** the API only accepts browser requests from addresses listed in `CORS_ORIGINS` in `apps/api/.env`. The default is `http://localhost:3001,http://localhost:5173` (the web app runs on 3001), so add your dev server's address if it's different.

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import { cognitoVerifier } from "./verifier.js";
+import { config } from "../config/config.js";
 import { fetchEmailFromCognito } from "./cognito.js";
 import { syncUserByCognitoSub } from "../../modules/user/service.js";
 import { ApiError } from "../http/ApiError.js";
@@ -9,6 +10,14 @@ interface CognitoAccessPayload {
   email?: string;
   username?: string;
   "cognito:groups"?: string[];
+}
+
+// AUTH_MODE=dev: the bearer token is the email itself; DEV_ADMIN_EMAILS stands in for the Cognito ADMIN group
+function devPayload(token: string): CognitoAccessPayload | undefined {
+  const email = token.toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+$/.test(email)) return undefined;
+  const admins = config.DEV_ADMIN_EMAILS.toLowerCase().split(",").map((e) => e.trim());
+  return { sub: `dev:${email}`, email, "cognito:groups": admins.includes(email) ? ["ADMIN"] : [] };
 }
 
 export const authenticateToken: RequestHandler = async (
@@ -28,11 +37,19 @@ export const authenticateToken: RequestHandler = async (
   }
 
   let payload: CognitoAccessPayload;
-  try {
-    payload = await cognitoVerifier.verify(token) as CognitoAccessPayload;
-  } catch (err: unknown) {
-    // Log token failures at debug level internally if using a logger
-    return next(ApiError.unauthorized("The provided access token is invalid or expired."));
+  if (config.AUTH_MODE === "dev") {
+    const dev = devPayload(token);
+    if (!dev) {
+      return next(ApiError.unauthorized("Local mode expects the token to be an email address."));
+    }
+    payload = dev;
+  } else {
+    try {
+      payload = await cognitoVerifier.verify(token) as CognitoAccessPayload;
+    } catch (err: unknown) {
+      // Log token failures at debug level internally if using a logger
+      return next(ApiError.unauthorized("The provided access token is invalid or expired."));
+    }
   }
 
   try {

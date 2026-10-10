@@ -5,6 +5,7 @@ import { authenticateToken } from "./common/auth/middleware.js";
 import { requireAdmin } from "./common/auth/guards.js";
 import { requireQuota } from "./modules/user/quota.js";
 import { errorHandler } from "./common/errors/errorHandler.js";
+import { localUploadsRouter } from "./common/storage/local.js";
 
 import * as HealthController from "./modules/health/controller.js";
 import * as UserController from "./modules/user/controller.js";
@@ -47,6 +48,11 @@ apiRouter.get("/admin/events", adminOnly, AdminController.events);
 apiRouter.get("/admin/users", adminOnly, AdminController.usersList);
 apiRouter.get("/admin/settings", adminOnly, AdminController.settings);
 apiRouter.put("/admin/settings", adminOnly, AdminController.updateSettings);
+
+// Photo upload/view routes for STORAGE_MODE=local (stand-in for S3 signed links)
+if (config.STORAGE_MODE === "local") {
+  app.use("/v1/local-uploads", localUploadsRouter);
+}
 
 // Mount single router under /v1
 app.use("/v1", apiRouter);

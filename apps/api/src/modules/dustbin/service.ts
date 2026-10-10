@@ -1,5 +1,5 @@
 import { getDb, sql, eq, and, type Transaction } from "@smartbin/db";
-import { bins } from "@smartbin/db";
+import { bins, binEvents } from "@smartbin/db";
 import { getSettings } from "../../common/settings.js";
 import { ApiError } from "../../common/http/ApiError.js";
 import { verifyDustbinImage } from "../../common/ai/vision.js";
@@ -187,6 +187,22 @@ export async function reportMissingBin(userId: string, binId: string, userLat: n
   // 3. Count the report; at the threshold (admin-set) the bin is removed and must be registered again
   const { missingReportsThreshold: threshold } = await getSettings();
   const result = await db.transaction(async (tx) => {
+    // One report per user per bin; an admin reset lets everyone report again.
+    // The per-bin lock stops a double tap from passing the check twice.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"bins:report:" + binId}))`);
+    const [previous] = await tx
+      .select({ id: binEvents.id })
+      .from(binEvents)
+      .where(sql`${binEvents.binId} = ${binId} and ${binEvents.userId} = ${userId}
+        and ${binEvents.type} = 'MISSING_REPORT'
+        and ${binEvents.createdAt} > coalesce(
+          (select max(created_at) from bin_events where bin_id = ${binId} and type = 'ADMIN_RESET_REPORTS'),
+          '-infinity')`)
+      .limit(1);
+    if (previous) {
+      throw ApiError.conflict("You have already reported this dustbin as missing.", "ALREADY_REPORTED");
+    }
+
     await consumeQuota(tx, userId, "missingReports");
 
     const [updatedBin] = await tx
