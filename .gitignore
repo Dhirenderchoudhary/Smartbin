@@ -13,3 +13,6 @@ coverage
 
 # Local photo storage (STORAGE_MODE=local)
 .local-uploads
+
+# Copied from maplibre-gl by the predev/prebuild scripts
+apps/web/public/maplibre-gl-worker.mjs

@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Inter, Inter_Tight } from "next/font/google";
 import { SITE } from "@/lib/site";
+import { themeScript } from "@/lib/theme";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+// Uber Move is proprietary; Inter Tight (headlines, 700) and Inter (text, 400/500) mirror its Move / Move Text pairing
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
+const interTight = Inter_Tight({ variable: "--font-inter-tight", subsets: ["latin"], weight: ["700"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -27,14 +27,18 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f7f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d1511" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en-IN" className={`${geistSans.variable} h-full antialiased`}>
+    // data-theme is set by themeScript before React hydrates
+    <html lang="en-IN" className={`${inter.variable} ${interTight.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="flex min-h-full flex-col font-sans">{children}</body>
     </html>
   );

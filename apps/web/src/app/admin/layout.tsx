@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { AuthGate } from "@/components/AuthGate";
 import { Logo } from "@/components/Logo";
 import { SignOutButton } from "@/components/SignOutButton";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false } };
 
@@ -14,7 +15,10 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
           <Logo href="/admin" />
           <Badge variant="secondary">Admin</Badge>
         </div>
-        <SignOutButton to="/admin/login" />
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <SignOutButton to="/admin/login" />
+        </div>
       </header>
       <AuthGate role="ADMIN">{children}</AuthGate>
     </div>

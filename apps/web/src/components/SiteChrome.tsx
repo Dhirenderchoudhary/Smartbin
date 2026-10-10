@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Logo } from "./Logo";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-10 border-b bg-background/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
-        <Logo />
-        <nav className="flex items-center gap-2">
+    <header className="sticky top-0 z-20 bg-background">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+        <Logo compact />
+        <nav className="flex items-center gap-1 sm:gap-2">
+          <ThemeToggle />
           <Button variant="ghost" size="lg" render={<Link href="/login" />} nativeButton={false}>
             Sign in
           </Button>
@@ -23,14 +24,16 @@ export function SiteHeader() {
 
 export function SiteFooter() {
   return (
-    <footer>
-      <Separator />
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <p>© {new Date().getFullYear()} SmartBin. Built for cleaner Indian streets.</p>
-        <nav className="flex gap-5">
-          <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-          <Link href="/login" className="hover:text-foreground">Sign in</Link>
-          <Link href="/admin/login" className="hover:text-foreground">Admin</Link>
+    <footer className="bg-primary text-primary-foreground">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3">
+          <Logo />
+          <p className="text-sm text-primary-foreground/60">© {new Date().getFullYear()} SmartBin. Built for cleaner Indian streets.</p>
+        </div>
+        <nav className="flex gap-6 text-sm text-primary-foreground/80">
+          <Link href="/privacy" className="hover:text-primary-foreground">Privacy</Link>
+          <Link href="/login" className="hover:text-primary-foreground">Sign in</Link>
+          <Link href="/admin/login" className="hover:text-primary-foreground">Admin</Link>
         </nav>
       </div>
     </footer>
