@@ -33,6 +33,10 @@ For the mobile app (Expo) and the admin dashboard (React). All routes live under
 | GET | `/admin/stats/timeseries` | Daily counts for charts |
 | GET | `/admin/bins` | Bin table with filters and pages |
 | GET | `/admin/bins/map` | All bins for the map |
+| POST | `/admin/bins/resolve-issues` | Mark problems sorted on many bins at once |
+| GET | `/admin/cleaning` | Bins with open problems, most urgent first |
+| GET | `/admin/insights` | Busiest, fastest-filling and slowest-to-fix bins |
+| GET | `/admin/demand` | Where people search for bins, for heatmaps |
 | GET | `/admin/bins/:id` | One bin with its history |
 | PATCH | `/admin/bins/:id` | Edit a bin or reset its reports |
 | DELETE | `/admin/bins/:id` | Delete a bin |
@@ -294,16 +298,23 @@ Returns `200` if the token belongs to an admin. Useful as a check right after lo
   "new":     { "today": 3, "last7Days": 21, "last30Days": 88 },
   "reports": { "today": 5, "last7Days": 19 },
   "removed": { "today": 1, "last7Days": 4, "total": 12, "byAdmin": 2 },
-  "users":   { "total": 56, "newLast7Days": 9 }
+  "users":   { "total": 56, "newLast7Days": 9 },
+  "issues":  { "needsCleaning": 6, "open": { "FULL": 4, "BROKEN": 1, "DIRTY": 2, "OTHER": 0 }, "today": 5, "avgHoursToFix": 7.5 },
+  "demand":  { "searchesToday": 140, "searchesLast7Days": 910, "unservedLast7Days": 85,
+               "viewsToday": 60, "directionsToday": 22, "directionsLast7Days": 150 }
 }
 ```
 
 - `atRisk`: active bins with 1 or 2 missing reports.
 - `removed.total`: bins removed by 3 user reports.
 - `removed.byAdmin`: bins deleted by an admin.
+- `issues.needsCleaning`: bins with at least one open problem. `open` counts open reports by type.
+- `issues.avgHoursToFix`: average hours from a problem report to it being marked sorted, over the last 30 days (`null` if none).
+- `demand`: "bins near me" searches, bin opens and directions. `unservedLast7Days` = searches with no bin within 500 m.
 
 ### `GET /admin/stats/timeseries?days=14`: line chart
 `days` is 1–90 (default 14). There is one entry per day, oldest first, and days with no activity come back as zeros.
+Besides the fields below, each day has `issueReports`, `issuesResolved`, `searches`, `views` and `directions`.
 ```json
 {
   "days": 14,
@@ -319,15 +330,55 @@ Returns `200` if the token belongs to an admin. Useful as a check right after lo
 | `type` | `WET`, `DRY` or `BOTH` |
 | `reported` | `true`: only bins with at least 1 report. `false`: only bins with none |
 | `q` | Search by name (case-insensitive, matches part of the name) |
-| `sort` | `newest` (default), `oldest`, `mostReported` |
+| `issue` | `ANY`: bins with an open problem. Or one type: `FULL`, `BROKEN`, `DIRTY`, `OTHER` |
+| `sort` | `newest` (default), `oldest`, `mostReported`, `demand` (most opened and navigated to in 30 days) |
 
-Each item has all the bin fields, plus `createdBy` (user id), `creatorEmail` and `imageUrl` (signed, 1 hour).
+Each item has all the bin fields, plus `createdBy` (user id), `creatorEmail`, `imageUrl` (signed, 1 hour), `issues` (open problems, as in **Bin**) and `demand30` (opens + directions in the last 30 days).
 
 ### `GET /admin/bins/map`
 Every active bin in one call, with no pages. Use it for the map view.
 ```json
-[ { "id": "uuid", "name": "SmartBin", "type": "WET", "latitude": 28.61, "longitude": 77.20, "missingReports": 0 } ]
+[ { "id": "uuid", "name": "SmartBin", "type": "WET", "latitude": 28.61, "longitude": 77.20, "missingReports": 0,
+    "createdAt": "…", "issues": [], "demand30": 12 } ]
 ```
+
+### `POST /admin/bins/resolve-issues`
+```json
+{ "binIds": ["uuid", "uuid"], "type": "FULL" }
+```
+Marks open problems sorted on up to 100 bins. Leave out `type` to clear every type. Returns `{ "bins": 2, "resolved": 5 }`.
+
+### `GET /admin/cleaning`: cleaning queue
+Every bin with an open problem, most urgent first. Each item:
+```json
+{ "id": "uuid", "name": "Gate 2", "type": "WET", "latitude": 28.61, "longitude": 77.20, "imageUrl": "…",
+  "missingReports": 0, "issues": [ … ], "reports": 3, "demand7": 14,
+  "oldestReportAt": "…", "hoursOpen": 5.2, "priority": 21.2 }
+```
+`priority` = 3 × open reports + hours since the oldest one + half the opens and directions in the last 7 days.
+
+### `GET /admin/insights?days=30`
+`days` is 1–365 (default 30).
+```json
+{
+  "days": 30,
+  "busiest":        [ { "id": "uuid", "name": "…", "type": "WET", "latitude": 28.6, "longitude": 77.2, "views": 40, "directions": 12, "arrivals": 9 } ],
+  "fastestFilling": [ { "id": "uuid", "name": "…", "…": "…", "cycles": 6, "medianHoursToFull": 9.5 } ],
+  "slowestToFix":   [ { "id": "uuid", "name": "…", "…": "…", "fixed": 4, "avgHoursToFix": 30.1 } ],
+  "issuesByType":   { "FULL": 40, "BROKEN": 3, "DIRTY": 8, "OTHER": 1 },
+  "fullReportsByHour": [ { "hour": 0, "reports": 0 }, "… 24 entries, Indian time" ]
+}
+```
+- `fastestFilling`: median hours from the bin being emptied (a FULL report marked sorted, or the bin being added) to the next FULL report. Top 10, fastest first.
+- `slowestToFix`: average hours from report to sorted. Top 10, slowest first.
+
+### `GET /admin/demand?days=30`
+Searches grouped into ~100 m cells, for heatmaps:
+```json
+{ "days": 30, "totalSearches": 910, "unservedSearches": 85,
+  "cells": [ { "lat": 28.632, "lng": 77.217, "searches": 40, "unserved": 0 } ] }
+```
+`unserved` counts searches that found no bin within 500 m: places that need a bin.
 
 ### `GET /admin/bins/:id`
 The same fields as an `/admin/bins` item, plus `issues` (open problems, as in **Bin**) and `timeline`: the bin's last 100 events, newest first (see **Event** below).
@@ -337,11 +388,11 @@ Returns `404` if the bin was removed. Its history is still available from `/admi
 ### `PATCH /admin/bins/:id`
 Send any combination of these, at least one:
 ```json
-{ "name": "Gate 2 bin", "type": "WET", "resetReports": true, "resolveIssues": true }
+{ "name": "Gate 2 bin", "type": "WET", "resetReports": true, "resolveIssues": "FULL" }
 ```
 
 - `resetReports: true` sets missing reports back to 0, for a bin that turned out not to be missing.
-- `resolveIssues: true` closes all of the bin's open problems (full, broken and so on).
+- `resolveIssues` closes open problems: `true` for every type, or one type such as `"FULL"`.
 - Any other field is rejected with `400`.
 - Returns the updated bin.
 - Every change is recorded in the bin's history.

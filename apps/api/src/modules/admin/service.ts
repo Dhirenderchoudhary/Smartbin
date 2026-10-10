@@ -17,7 +17,8 @@ import { ApiError } from "../../common/http/ApiError.js";
 import { deleteImageObject, getImageViewUrl } from "../../common/storage/s3.js";
 import { logBinEvent } from "../../common/events.js";
 import { APP_TIMEZONE } from "../../common/time.js";
-import { openIssuesOf, resolveBinIssues } from "../dustbin/service.js";
+import { issuesSql, openIssue, openIssuesOf, resolveBinIssues } from "../dustbin/service.js";
+import type { BinIssueType } from "@smartbin/db";
 import type { BinPatchBody, BinsListQuery, EventsQuery } from "./schemas.js";
 
 // "Today" and daily buckets follow Indian time, not UTC
@@ -31,7 +32,7 @@ function paged<T>(items: T[], page: number, pageSize: number, total: number) {
 export async function getStats() {
   const db = getDb();
 
-  const [binTotals, eventTotals, userTotals] = await Promise.all([
+  const [binTotals, eventTotals, userTotals, [usage]] = await Promise.all([
     db
       .select({
         active: count(),
@@ -62,6 +63,24 @@ export async function getStats() {
         new7: sql<number>`count(*) filter (where ${users.createdAt} >= now() - interval '7 days')`.mapWith(Number),
       })
       .from(users),
+
+    db.execute<Record<string, number | null>>(sql`
+      select
+        (select count(distinct bin_id) from bin_issues where ${openIssue})::int as needs_cleaning,
+        (select count(*) from bin_issues where ${openIssue} and type = 'FULL')::int as open_full,
+        (select count(*) from bin_issues where ${openIssue} and type = 'BROKEN')::int as open_broken,
+        (select count(*) from bin_issues where ${openIssue} and type = 'DIRTY')::int as open_dirty,
+        (select count(*) from bin_issues where ${openIssue} and type = 'OTHER')::int as open_other,
+        (select count(*) from bin_issues where created_at >= ${todayStart})::int as issues_today,
+        (select avg(extract(epoch from resolved_at - created_at)) / 3600 from bin_issues
+          where resolved_at > now() - interval '30 days') as avg_fix_hours,
+        (select count(*) from search_logs where created_at >= ${todayStart})::int as searches_today,
+        (select count(*) from search_logs where created_at > now() - interval '7 days')::int as searches_7,
+        (select count(*) from search_logs where created_at > now() - interval '7 days' and bins_nearby = 0)::int as unserved_7,
+        (select count(*) from bin_interactions where type = 'VIEW' and created_at >= ${todayStart})::int as views_today,
+        (select count(*) from bin_interactions where type = 'DIRECTIONS' and created_at >= ${todayStart})::int as directions_today,
+        (select count(*) from bin_interactions where type = 'DIRECTIONS' and created_at > now() - interval '7 days')::int as directions_7
+    `),
   ]);
 
   const b = binTotals[0]!;
@@ -74,18 +93,43 @@ export async function getStats() {
     reports: { today: e.reportsToday, last7Days: e.reports7 },
     removed: { today: e.removedToday, last7Days: e.removed7, total: e.removedTotal, byAdmin: e.adminDeletedTotal },
     users: { total: u.total, newLast7Days: u.new7 },
+    issues: {
+      needsCleaning: Number(usage!.needs_cleaning),
+      open: {
+        FULL: Number(usage!.open_full),
+        BROKEN: Number(usage!.open_broken),
+        DIRTY: Number(usage!.open_dirty),
+        OTHER: Number(usage!.open_other),
+      },
+      today: Number(usage!.issues_today),
+      avgHoursToFix: usage!.avg_fix_hours === null ? null : Math.round(Number(usage!.avg_fix_hours) * 10) / 10,
+    },
+    demand: {
+      searchesToday: Number(usage!.searches_today),
+      searchesLast7Days: Number(usage!.searches_7),
+      unservedLast7Days: Number(usage!.unserved_7),
+      viewsToday: Number(usage!.views_today),
+      directionsToday: Number(usage!.directions_today),
+      directionsLast7Days: Number(usage!.directions_7),
+    },
   };
 }
 
 export async function getTimeseries(days: number) {
   const db = getDb();
 
-  const rows = await db.execute<{ day: string; registrations: number; missing_reports: number; removals: number }>(sql`
+  const onDay = (column: string) => sql.raw(`(${column} at time zone '${TZ}')::date = d.day::date`);
+  const rows = await db.execute<Record<string, string | number>>(sql`
     select
       to_char(d.day, 'YYYY-MM-DD') as day,
       count(e.id) filter (where e.type = 'REGISTERED')::int as registrations,
       count(e.id) filter (where e.type = 'MISSING_REPORT')::int as missing_reports,
-      count(e.id) filter (where e.type = 'REMOVED')::int as removals
+      count(e.id) filter (where e.type = 'REMOVED')::int as removals,
+      count(e.id) filter (where e.type = 'ISSUE_REPORT')::int as issue_reports,
+      count(e.id) filter (where e.type = 'ISSUE_RESOLVED')::int as issues_resolved,
+      (select count(*) from search_logs s where ${onDay("s.created_at")})::int as searches,
+      (select count(*) from bin_interactions i where i.type = 'VIEW' and ${onDay("i.created_at")})::int as views,
+      (select count(*) from bin_interactions i where i.type = 'DIRECTIONS' and ${onDay("i.created_at")})::int as directions
     from generate_series(
       (now() at time zone ${TZ})::date - ${days - 1}::int,
       (now() at time zone ${TZ})::date,
@@ -101,18 +145,32 @@ export async function getTimeseries(days: number) {
     days,
     timezone: TZ,
     series: rows.map((r) => ({
-      day: r.day,
+      day: String(r.day),
       registrations: Number(r.registrations),
       missingReports: Number(r.missing_reports),
       removals: Number(r.removals),
+      issueReports: Number(r.issue_reports),
+      issuesResolved: Number(r.issues_resolved),
+      searches: Number(r.searches),
+      views: Number(r.views),
+      directions: Number(r.directions),
     })),
   };
 }
 
+// Opened + navigated to in the last 30 days
+const demand30 = sql<number>`(select count(*) from bin_interactions
+  where bin_id = "bins"."id" and type in ('VIEW', 'DIRECTIONS') and created_at > now() - interval '30 days')::int`;
+
 const binListColumns = {
   ...getTableColumns(bins),
   creatorEmail: users.email,
+  issues: issuesSql(),
+  demand30,
 };
+
+const hasOpenIssue = (type?: BinIssueType) =>
+  sql`exists (select 1 from bin_issues where bin_id = "bins"."id" and ${openIssue}${type ? sql` and type = ${type}` : sql``})`;
 
 async function withImageUrl<T extends { imageKey: string }>(bin: T) {
   const { imageKey, ...rest } = bin;
@@ -126,7 +184,8 @@ export async function listBins(query: BinsListQuery) {
     query.type ? eq(bins.type, query.type) : undefined,
     query.reported === true ? gt(bins.missingReports, 0) : undefined,
     query.reported === false ? eq(bins.missingReports, 0) : undefined,
-    query.q ? ilike(bins.name, `%${query.q}%`) : undefined
+    query.q ? ilike(bins.name, `%${query.q}%`) : undefined,
+    query.issue ? hasOpenIssue(query.issue === "ANY" ? undefined : query.issue) : undefined
   );
 
   const orderBy =
@@ -134,7 +193,9 @@ export async function listBins(query: BinsListQuery) {
       ? [asc(bins.createdAt)]
       : query.sort === "mostReported"
         ? [desc(bins.missingReports), desc(bins.createdAt)]
-        : [desc(bins.createdAt)];
+        : query.sort === "demand"
+          ? [desc(demand30), desc(bins.createdAt)]
+          : [desc(bins.createdAt)];
 
   const [rows, [totalRow]] = await Promise.all([
     db
@@ -162,6 +223,9 @@ export async function getBinsForMap() {
       latitude: bins.latitude,
       longitude: bins.longitude,
       missingReports: bins.missingReports,
+      createdAt: bins.createdAt,
+      issues: issuesSql(),
+      demand30,
     })
     .from(bins);
 }
@@ -208,7 +272,9 @@ export async function updateBin(adminId: string, binId: string, body: BinPatchBo
     const [updated] = Object.keys(changes).length
       ? await tx.update(bins).set(changes).where(eq(bins.id, binId)).returning()
       : [before];
-    if (body.resolveIssues) await resolveBinIssues(adminId, binId, {}, tx);
+    if (body.resolveIssues) {
+      await resolveBinIssues(adminId, binId, body.resolveIssues === true ? {} : { type: body.resolveIssues }, tx);
+    }
 
     if (body.name !== undefined || body.type !== undefined) {
       await logBinEvent(tx, {
@@ -313,4 +379,15 @@ export async function listUsers(page: number, pageSize: number) {
   ]);
 
   return paged(items, page, pageSize, totalRow!.total);
+}
+
+// Cleaning queue "mark done" for many bins at once
+export async function resolveIssuesForBins(adminId: string, binIds: string[], type?: BinIssueType) {
+  return getDb().transaction(async (tx) => {
+    let resolved = 0;
+    for (const binId of binIds) {
+      resolved += (await resolveBinIssues(adminId, binId, type ? { type } : {}, tx)).resolved;
+    }
+    return { bins: binIds.length, resolved };
+  });
 }

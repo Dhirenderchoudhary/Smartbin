@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BIN_EVENT_TYPES } from "@smartbin/db";
+import { BIN_EVENT_TYPES, BIN_ISSUE_TYPES } from "@smartbin/db";
 import { SETTING_DEFINITIONS, type SettingKey } from "../../common/settings.js";
 
 const pagination = {
@@ -19,7 +19,17 @@ export const binsListQuery = z.object({
     .transform((v) => v === "true")
     .optional(),
   q: z.string().trim().min(1).max(100).optional(),
-  sort: z.enum(["newest", "oldest", "mostReported"]).default("newest"),
+  issue: z.enum(["ANY", ...BIN_ISSUE_TYPES]).optional(),
+  sort: z.enum(["newest", "oldest", "mostReported", "demand"]).default("newest"),
+});
+
+export const daysQuery = z.object({
+  days: z.coerce.number().int().min(1).max(365).default(30),
+});
+
+export const resolveIssuesBody = z.object({
+  binIds: z.array(z.string().uuid()).min(1).max(100),
+  type: z.enum(BIN_ISSUE_TYPES).optional(),
 });
 
 export const binIdParams = z.object({
@@ -31,7 +41,7 @@ export const binPatchBody = z
     name: z.string().trim().min(1).max(100).optional(),
     type: z.enum(["WET", "DRY", "BOTH"]).optional(),
     resetReports: z.literal(true).optional(),
-    resolveIssues: z.literal(true).optional(),
+    resolveIssues: z.union([z.literal(true), z.enum(BIN_ISSUE_TYPES)]).optional(),
   })
   .strict()
   .refine((b) => b.name !== undefined || b.type !== undefined || b.resetReports || b.resolveIssues, {
