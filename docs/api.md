@@ -245,7 +245,7 @@ Report a problem with a bin that is still there.
 - `type` is `FULL`, `BROKEN`, `DIRTY` or `OTHER`.
 - `note` is optional, up to 200 characters, and **required** for `OTHER`.
 - `lat`/`lng` is the user's current GPS position; it must be within **50 m** of the bin.
-- A problem stays open until someone marks it sorted or an admin clears it. `FULL` also closes by itself after **24 hours**.
+- A problem stays open until someone marks it sorted or an admin clears it. `FULL` also closes by itself after **24 hours** (admin setting `fullIssueHours`).
 - Each user can have one open report per problem type per bin. A second one returns `409 ALREADY_REPORTED`.
 - No monthly quota.
 
@@ -458,7 +458,8 @@ Paginated, newest users first.
       "isDefault": true, "updatedAt": null, "updatedByEmail": null
     },
     { "key": "quotaLimitMissingReports", "label": "Missing reports per user per month", "value": 15, "default": 15, "min": 0, "max": 100, "isDefault": true },
-    { "key": "missingReportsThreshold", "label": "Missing reports needed to remove a bin", "value": 3, "default": 3, "min": 1, "max": 20, "isDefault": true }
+    { "key": "missingReportsThreshold", "label": "Missing reports needed to remove a bin", "value": 3, "default": 3, "min": 1, "max": 20, "isDefault": true },
+    { "key": "fullIssueHours", "label": "Hours a 'full' report stays open if nobody marks the bin emptied", "value": 24, "default": 24, "min": 1, "max": 168, "isDefault": true }
   ],
   "history": [
     { "id": "uuid", "key": "missingReportsThreshold", "oldValue": 3, "newValue": 2, "changedBy": "uuid", "changedByEmail": "admin@x.com", "changedAt": "…" }
