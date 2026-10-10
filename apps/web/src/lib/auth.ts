@@ -13,6 +13,9 @@ export const LOCAL_AUTH = (process.env.NEXT_PUBLIC_AUTH_MODE ?? "dev") === "dev"
 
 const KEY = "smartbin.session";
 
+// One-click test accounts for local mode (the API's DEV_ADMIN_EMAILS makes the admin one an admin)
+export const DEMO_ACCOUNTS = { user: "demo@smartbin.local", admin: "admin@smartbin.local" };
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Cognito will use the password
 export async function signIn(email: string, _password: string): Promise<void> {
   if (!LOCAL_AUTH) throw new Error("Cognito sign-in is not set up yet.");

@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppTopBar } from "@/components/AppTopBar";
 import { useMe } from "@/components/AuthGate";
+import { TestLogin } from "@/components/TestLogin";
 import { ThemeChooser } from "@/components/ThemeToggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, type Quota } from "@/lib/api";
-import { signOut } from "@/lib/auth";
+import { LOCAL_AUTH, signOut } from "@/lib/auth";
 
 function Allowance({ label, used, limit }: { label: string; used: number; limit: number }) {
   return (
@@ -91,6 +92,18 @@ export default function AccountPage() {
             <ThemeChooser />
           </CardContent>
         </Card>
+
+        {LOCAL_AUTH && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Testing</CardTitle>
+              <CardDescription>Local mode only. Switch accounts in one tap.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TestLogin variant="inline" />
+            </CardContent>
+          </Card>
+        )}
 
         <Button size="xl" variant="secondary" onClick={() => signOut().then(() => router.replace("/"))}>
           <LogOutIcon data-icon="inline-start" />

@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
+import { TestLogin } from "./TestLogin";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-20 bg-background">
+      <TestLogin />
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Logo compact />
         <nav className="flex items-center gap-1 sm:gap-2">

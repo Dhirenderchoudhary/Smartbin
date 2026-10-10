@@ -10,7 +10,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { api, type Me } from "@/lib/api";
-import { LOCAL_AUTH, signIn, signOut, signUp } from "@/lib/auth";
+import { DEMO_ACCOUNTS as DEMO, LOCAL_AUTH, signIn, signOut, signUp } from "@/lib/auth";
 
 type Mode = "login" | "signup" | "admin";
 
@@ -19,9 +19,6 @@ const copy: Record<Mode, { title: string; subtitle: string; submit: string }> = 
   signup: { title: "Create your account", subtitle: "Free, and takes a few seconds.", submit: "Create account" },
   admin: { title: "Admin sign in", subtitle: "For SmartBin city and campus teams.", submit: "Sign in" },
 };
-
-// One-click accounts for local mode (the API treats DEV_ADMIN_EMAILS as admins)
-const DEMO = { user: "demo@smartbin.local", admin: "admin@smartbin.local" };
 
 // Only same-site paths, so ?next= can't send people to another website
 function nextPath(): string | null {
