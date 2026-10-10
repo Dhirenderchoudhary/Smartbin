@@ -22,6 +22,7 @@ For the mobile app (Expo) and the admin dashboard (React). All routes live under
 | POST | `/dustbins/:id/report-missing` | Report a bin as missing |
 | POST | `/dustbins/:id/issues` | Report a problem: full, broken, dirty, other |
 | POST | `/dustbins/:id/issues/resolve` | Say a problem is sorted (emptied, fixed) |
+| POST | `/dustbins/:id/interactions` | Record that the user opened a bin, asked for directions or arrived |
 
 **Admins**
 
@@ -209,6 +210,7 @@ Content-Type: image/jpeg      ← must match the contentType from step 1
 ### `GET /dustbins/nearby?lat=28.61&lng=77.20&radius=500`
 
 - `lat` and `lng` are required. `radius` is optional, in metres, 1–50000.
+- `log=1` counts the request as a "bins near me" search in the admin stats (anonymous, rounded to ~100 m). Send it on the app's own nearby load, **not** on loads for a map the user is panning.
 - **With `radius`:** every bin within that distance, nearest first, up to the **500 nearest**.
 - **Without `radius`:** the **5 nearest** bins.
 - `200`: an array of **Bin**.
@@ -259,6 +261,20 @@ Someone at the bin says a problem is sorted (the bin was emptied, cleaned or fix
 Must be within 50 m of the bin. Returns `{ "id": "uuid", "resolved": 2, "issues": [ … ] }`; `resolved` is how many reports were closed (0 if none were open).
 
 Possible errors: `400`, `403 TOO_FAR`, `404 NOT_FOUND`.
+
+### `POST /dustbins/:id/interactions`
+Tells admins which bins people use. Fire and forget: don't wait for it or show errors.
+```json
+{ "type": "VIEW" }
+```
+
+| `type` | Send when |
+|---|---|
+| `VIEW` | The user opens a bin's details |
+| `DIRECTIONS` | The user starts directions to it |
+| `ARRIVED` | The user gets within 20 m while navigating |
+
+Repeats are ignored for a while (VIEW and ARRIVED: 1 hour, DIRECTIONS: 10 minutes per user and bin), so it's safe to send on every open. Returns `{ "recorded": true }`, or `false` when it was a repeat or the bin no longer exists.
 
 ---
 

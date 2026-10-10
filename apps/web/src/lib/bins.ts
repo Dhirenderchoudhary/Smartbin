@@ -44,14 +44,22 @@ export const DUPLICATE_RADIUS_M = 15;
 export const TYPE_LABEL: Record<BinType, string> = { WET: "Wet", DRY: "Dry", BOTH: "Wet and dry" };
 
 // Bins within 2 km; if there are none, the 5 closest wherever they are
-export async function fetchNearby({ lat, lng }: LatLng): Promise<Bin[]> {
-  const near = await api<Bin[]>(`/dustbins/nearby?lat=${lat}&lng=${lng}&radius=2000`);
+// search: count this as a "bins near me" search in the admin stats (not for map pans)
+export async function fetchNearby({ lat, lng }: LatLng, search = false): Promise<Bin[]> {
+  const near = await api<Bin[]>(`/dustbins/nearby?lat=${lat}&lng=${lng}&radius=2000${search ? "&log=1" : ""}`);
   return near.length ? near : api<Bin[]>(`/dustbins/nearby?lat=${lat}&lng=${lng}`);
 }
 
 // Every bin within radius metres (the API caps it at the 500 nearest)
 export function fetchArea({ lat, lng }: LatLng, radius: number): Promise<Bin[]> {
   return api<Bin[]>(`/dustbins/nearby?lat=${lat}&lng=${lng}&radius=${Math.ceil(radius)}`);
+}
+
+export type Interaction = "VIEW" | "DIRECTIONS" | "ARRIVED";
+
+// Tells admins which bins people look for. Best effort: never blocks or fails the UI.
+export function trackInteraction(binId: string, type: Interaction): void {
+  api(`/dustbins/${binId}/interactions`, { method: "POST", body: { type } }).catch(() => {});
 }
 
 export function reportMissing(binId: string, at: LatLng) {

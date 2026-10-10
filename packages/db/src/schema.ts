@@ -112,3 +112,39 @@ export const binIssues = pgTable(
   },
   (t) => [index("bin_issues_bin_id_idx").on(t.binId)]
 );
+
+export const BIN_INTERACTION_TYPES = ["VIEW", "DIRECTIONS", "ARRIVED"] as const;
+export type BinInteractionType = (typeof BIN_INTERACTION_TYPES)[number];
+
+// How much people want each bin: opened it, asked for directions, walked there.
+// Separate from bin_events (the admin audit trail), which these would drown out.
+export const binInteractions = pgTable(
+  "bin_interactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    binId: uuid("bin_id")
+      .notNull()
+      .references(() => bins.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type", { enum: BIN_INTERACTION_TYPES }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("bin_interactions_bin_id_created_at_idx").on(t.binId, t.createdAt),
+    index("bin_interactions_type_created_at_idx").on(t.type, t.createdAt),
+  ]
+);
+
+// Where people look for bins. Anonymous on purpose: no user, position rounded to ~100 m.
+// binsNearby = 0 marks a spot where people want a bin and there isn't one.
+export const searchLogs = pgTable(
+  "search_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    latCell: doublePrecision("lat_cell").notNull(),
+    lngCell: doublePrecision("lng_cell").notNull(),
+    binsNearby: integer("bins_nearby").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("search_logs_created_at_idx").on(t.createdAt)]
+);

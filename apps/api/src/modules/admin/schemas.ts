@@ -59,6 +59,7 @@ export const settingsBody = z
     quotaLimitRegistrations: settingValue("quotaLimitRegistrations"),
     quotaLimitMissingReports: settingValue("quotaLimitMissingReports"),
     missingReportsThreshold: settingValue("missingReportsThreshold"),
+    fullIssueHours: settingValue("fullIssueHours"),
   } satisfies Record<SettingKey, z.ZodTypeAny>)
   .strict()
   .refine((b) => Object.values(b).some((v) => v !== undefined), {

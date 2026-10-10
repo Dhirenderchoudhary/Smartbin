@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BIN_ISSUE_TYPES } from "@smartbin/db";
+import { BIN_INTERACTION_TYPES, BIN_ISSUE_TYPES } from "@smartbin/db";
 import { ALLOWED_IMAGE_TYPES, type AllowedImageType } from "../../common/storage/s3.js";
 
 const queryLat = z.coerce.number().min(-90).max(90);
@@ -15,6 +15,12 @@ export const nearbyQuery = z.object({
   lat: queryLat,
   lng: queryLng,
   radius: z.coerce.number().int().min(1).max(50000).optional(),
+  // 1 = this is a "bins near me" search worth counting (not a map pan)
+  log: z.enum(["0", "1"]).optional(),
+});
+
+export const interactionBody = z.object({
+  type: z.enum(BIN_INTERACTION_TYPES),
 });
 
 export const createBody = z.object({

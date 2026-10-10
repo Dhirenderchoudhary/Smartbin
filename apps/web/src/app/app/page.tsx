@@ -7,11 +7,11 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LogoMark } from "@/components/Logo";
 import { BinPanel } from "@/components/map/BinPanel";
-import { NavigationPanel } from "@/components/map/NavigationPanel";
+import { ARRIVED_WITHIN_M, NavigationPanel } from "@/components/map/NavigationPanel";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Spinner } from "@/components/ui/spinner";
-import { fetchArea, fetchNearby, INDIA_VIEW, lastKnownLocation, metresBetween, watchLocation, type Bin, type BinIssue, type LatLng } from "@/lib/bins";
+import { fetchArea, fetchNearby, trackInteraction, INDIA_VIEW, lastKnownLocation, metresBetween, watchLocation, type Bin, type BinIssue, type LatLng } from "@/lib/bins";
 import { routeProgress, walkingRoute, type WalkRoute } from "@/lib/routes";
 
 // Recalculate the route when you're this far off it (and not more often than every 10 s)
@@ -75,6 +75,7 @@ function NearbyPage() {
   const routedAt = useRef(0);
   const routeRequest = useRef(0); // ignores route answers that arrive after you ended or rerouted
   const wakeLock = useRef<WakeLockSentinel | null>(null);
+  const arrivedAt = useRef<string | null>(null); // bin we already counted an arrival for
 
   // Bins arrive from several places (around you, the area in view, a bin you just added): keep them all
   const merge = useCallback((list: Bin[]) => {
@@ -85,7 +86,7 @@ function NearbyPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      merge(await fetchNearby(at));
+      merge(await fetchNearby(at, true));
       loadedAreas.current.push({ center: at, radius: 2000 });
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Couldn't load bins. Try again.");
@@ -144,6 +145,8 @@ function NearbyPage() {
   }, []);
 
   function startNavigation(bin: Bin) {
+    trackInteraction(bin.id, "DIRECTIONS");
+    arrivedAt.current = null;
     setSelectedId(bin.id);
     setNavBin(bin);
     setRoute(null);
@@ -170,6 +173,17 @@ function NearbyPage() {
   }, [navBin, you, route, routeTo]);
 
   useEffect(() => () => void wakeLock.current?.release().catch(() => {}), []);
+
+  // Admin stats: which bins people open, and who actually walked there
+  useEffect(() => {
+    if (selectedId) trackInteraction(selectedId, "VIEW");
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!navBin || !you || arrivedAt.current === navBin.id || metresBetween(you, navBin) > ARRIVED_WITHIN_M) return;
+    arrivedAt.current = navBin.id;
+    trackInteraction(navBin.id, "ARRIVED");
+  }, [navBin, you]);
 
   useEffect(() => {
     if (!addedAt || !selectedId) return;

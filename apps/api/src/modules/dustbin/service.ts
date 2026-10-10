@@ -1,6 +1,6 @@
 import { getDb, sql, eq, and, isNull, type Transaction } from "@smartbin/db";
-import { bins, binEvents, binIssues, type BinIssueType } from "@smartbin/db";
-import { getSettings } from "../../common/settings.js";
+import { appSettings, bins, binEvents, binIssues, binInteractions, searchLogs, type BinIssueType, type BinInteractionType } from "@smartbin/db";
+import { getSettings, SETTING_DEFINITIONS } from "../../common/settings.js";
 import { ApiError } from "../../common/http/ApiError.js";
 import { verifyDustbinImage } from "../../common/ai/vision.js";
 import {
@@ -20,9 +20,13 @@ const ISSUE_MAX_DISTANCE_M = 50;
 // ponytail: nearest 500 only; cluster on the server (or vector tiles) once areas get denser than that
 const NEARBY_LIMIT = 500;
 
-// Open = not resolved yet. Bins get emptied without anyone telling us, so FULL lapses after a day.
-const openIssue = sql`${binIssues.resolvedAt} is null
-  and (${binIssues.type} <> 'FULL' or ${binIssues.createdAt} > now() - interval '1 day')`;
+// Open = not resolved yet. Bins get emptied without anyone telling us, so FULL lapses after
+// the admin setting fullIssueHours (read in SQL so every query that lists issues agrees on it).
+const fullIssueHours = sql`coalesce(
+  (select (${appSettings.value})::int from ${appSettings} where ${appSettings.key} = 'fullIssueHours'),
+  ${SETTING_DEFINITIONS.fullIssueHours.default()})`;
+export const openIssue = sql`${binIssues.resolvedAt} is null
+  and (${binIssues.type} <> 'FULL' or ${binIssues.createdAt} > now() - make_interval(hours => ${fullIssueHours}))`;
 
 export type BinIssueSummary = { type: BinIssueType; reports: number; lastReportedAt: string; note: string | null };
 
@@ -363,4 +367,35 @@ export async function resolveBinIssues(
     return { id: binId, resolved: resolved.length, issues: await openIssuesOf(tx, binId) };
   };
   return executor ? run(executor) : getDb().transaction(run);
+}
+
+// Dedupe windows, so refreshing or tapping twice doesn't inflate the numbers
+const INTERACTION_DEDUPE_MINUTES: Record<BinInteractionType, number> = { VIEW: 60, DIRECTIONS: 10, ARRIVED: 60 };
+
+export async function recordInteraction(userId: string, binId: string, type: BinInteractionType) {
+  const rows = await getDb().execute(sql`
+    insert into ${binInteractions} (bin_id, user_id, type)
+    select ${binId}, ${userId}, ${type}
+    where exists (select 1 from ${bins} where ${bins.id} = ${binId})
+      and not exists (
+        select 1 from ${binInteractions}
+        where bin_id = ${binId} and user_id = ${userId} and type = ${type}
+          and created_at > now() - make_interval(mins => ${INTERACTION_DEDUPE_MINUTES[type]})
+      )
+    returning id`);
+  return { recorded: rows.length > 0 };
+}
+
+// Within this distance a search counts as served by a bin
+const SEARCH_SERVED_M = 500;
+
+// Anonymous: no user, position rounded to 3 decimals (~100 m)
+export async function logSearch(lat: number, lng: number, results: { distance: number }[]) {
+  await getDb()
+    .insert(searchLogs)
+    .values({
+      latCell: Math.round(lat * 1000) / 1000,
+      lngCell: Math.round(lng * 1000) / 1000,
+      binsNearby: results.filter((b) => b.distance <= SEARCH_SERVED_M).length,
+    });
 }

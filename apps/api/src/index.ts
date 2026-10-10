@@ -35,6 +35,7 @@ apiRouter.post("/dustbins", authenticateToken, requireQuota("registrations"), Du
 apiRouter.post("/dustbins/:id/report-missing", authenticateToken, requireQuota("missingReports"), DustbinController.reportMissing);
 apiRouter.post("/dustbins/:id/issues", authenticateToken, DustbinController.reportIssue);
 apiRouter.post("/dustbins/:id/issues/resolve", authenticateToken, DustbinController.resolveIssue);
+apiRouter.post("/dustbins/:id/interactions", authenticateToken, DustbinController.interaction);
 
 // --- Admin Endpoints ---
 const adminOnly = [authenticateToken, requireAdmin];
