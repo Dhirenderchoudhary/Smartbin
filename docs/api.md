@@ -134,7 +134,7 @@ Every response uses one of two shapes.
   "status": "ACTIVE",
   "missingReports": 0,
   "createdAt": "2026-10-10T03:52:30.321Z",
-  "issues": [ { "type": "FULL", "reports": 2, "lastReportedAt": "2026-10-10T14:03:09.657Z" } ],
+  "issues": [ { "type": "FULL", "reports": 2, "lastReportedAt": "2026-10-10T14:03:09.657Z", "note": null } ],
   "distance": 42.7,
   "imageUrl": "https://smartbin-uploads-bucket.s3.ap-south-1.amazonaws.com/...&X-Amz-Signature=..."
 }
@@ -144,7 +144,7 @@ Every response uses one of two shapes.
 - `distance` is in metres from the location in the request.
 - `imageUrl` is a signed link that works for **1 hour**. Don't save it; fetch the list again to get a fresh one.
 - `status` is always `ACTIVE`.
-- `issues` lists the bin's open problems, one entry per type, most recent first. Empty when there are none.
+- `issues` lists the bin's open problems, one entry per type, most recent first, with the latest `note` people wrote (or `null`). Empty when there are none.
 
 ---
 

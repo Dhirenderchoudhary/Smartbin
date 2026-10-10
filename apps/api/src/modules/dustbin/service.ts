@@ -22,15 +22,16 @@ const ISSUE_MAX_DISTANCE_M = 50;
 const openIssue = sql`${binIssues.resolvedAt} is null
   and (${binIssues.type} <> 'FULL' or ${binIssues.createdAt} > now() - interval '1 day')`;
 
-export type BinIssueSummary = { type: BinIssueType; reports: number; lastReportedAt: string };
+export type BinIssueSummary = { type: BinIssueType; reports: number; lastReportedAt: string; note: string | null };
 
-// Open issues of a bin, one entry per type, most recent first. Defaults to the bin row of the outer query.
+// Open issues of a bin, one entry per type with its latest note, most recent first. Defaults to the bin row of the outer query.
 // (spelled out: inside the subquery drizzle would print bins.id as a bare "id", which is bin_issues.id)
 export function issuesSql(binId: unknown = sql`"bins"."id"`) {
   return sql<BinIssueSummary[]>`coalesce((
-    select json_agg(json_build_object('type', t.type, 'reports', t.reports, 'lastReportedAt', t.last) order by t.last desc)
+    select json_agg(json_build_object('type', t.type, 'reports', t.reports, 'lastReportedAt', t.last, 'note', t.note) order by t.last desc)
     from (
-      select ${binIssues.type} as type, count(*)::int as reports, max(${binIssues.createdAt}) as last
+      select ${binIssues.type} as type, count(*)::int as reports, max(${binIssues.createdAt}) as last,
+        (array_agg(${binIssues.note} order by ${binIssues.createdAt} desc) filter (where ${binIssues.note} is not null))[1] as note
       from ${binIssues}
       where ${binIssues.binId} = ${binId} and ${openIssue}
       group by ${binIssues.type}
