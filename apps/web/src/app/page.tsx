@@ -2,6 +2,7 @@ import { CheckCircle2Icon, LocateFixedIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { AppBadges } from "@/components/landing/AppBadges";
+import { ClosingCta } from "@/components/landing/ClosingCta";
 import { BrowserFrame, PhoneFrame, Screen } from "@/components/landing/Frames";
 import { StreetBin } from "@/components/landing/illustrations";
 import { LiveMap } from "@/components/landing/LiveMap";
@@ -350,17 +351,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-20 md:py-28">
-            <Reveal>
-              <h2 className={`${display} max-w-[16ch] text-5xl sm:text-7xl`}>Seen a bin that isn&apos;t on the map?</h2>
-            </Reveal>
-            <p className="max-w-[40ch] text-lg leading-relaxed text-muted-foreground">
-              Add it from where you&apos;re standing. The next person looking for a bin will find it.
-            </p>
-            <Magnetic>
-              <Button size="xl" render={<Link href="/signup" />} nativeButton={false}>Add a bin</Button>
-            </Magnetic>
-          </section>
+          <ClosingCta display={display} />
         </main>
       </MotionRoot>
       <SiteFooter />

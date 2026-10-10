@@ -128,6 +128,7 @@ It's built from `components/landing/`:
 | `Motion.tsx` | `MotionRoot` (`LazyMotion` + `MotionConfig reducedMotion="user"`), `Reveal` (headings rise in once), `Tilt` (phones lean towards the cursor), `Magnetic` (main buttons lean towards the cursor), `useFinePointer` |
 | `AppBadges.tsx` | Google Play / App Store buttons from `SITE.appLinks` in `lib/site.ts`; an empty link shows "Coming soon" and goes nowhere |
 | `RuleCards.tsx` | The three rules: a big number each (15 m, 20 m, 3) and a diagram that acts the rule out when the card scrolls into view; hover replays it. Without JavaScript the end state shows |
+| `ClosingCta.tsx` | The last call to action, shaped like the app's "Where is the bin?" step: the pin stays in the middle and the map slides under it with the cursor. Add a bin and Find bins near me |
 | `illustrations.tsx` | `Streets`, `Pin`, `StreetBin`: the SVG drawings |
 
 **Motion rules:**
