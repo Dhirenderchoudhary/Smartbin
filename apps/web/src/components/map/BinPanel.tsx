@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertCircleIcon, AlertTriangleIcon, CheckCircle2Icon, CheckIcon, FlagIcon, NavigationIcon } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -285,13 +285,43 @@ export function BinPanel({
 }) {
   // The map can hold hundreds after zooming out; the list keeps to the nearest
   const others = bins.filter((b) => b.id !== selected?.id).slice(0, 25);
+
+  // Phones: swipe the handle down (or tap it) to see more map; picking a bin opens it again
+  const [open, setOpen] = useState(true);
+  const [openFor, setOpenFor] = useState(selected?.id);
+  if (selected?.id !== openFor) {
+    setOpenFor(selected?.id);
+    if (selected) setOpen(true);
+  }
+  const startY = useRef(0);
+  const swiped = useRef(false);
+
   return (
     <section
       aria-label="Nearby bins"
       className="absolute inset-x-0 bottom-0 z-10 flex max-h-[46dvh] flex-col rounded-t-3xl bg-card shadow-sheet md:inset-y-4 md:right-auto md:left-4 md:max-h-none md:w-100 md:rounded-2xl"
     >
-      <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-accent md:hidden" aria-hidden="true" />
-      <div className="flex flex-col gap-5 overflow-y-auto p-5 pt-4 md:pt-5">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={open ? "Hide the bin list" : "Show the bin list"}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId); // keep the release even when the finger ends below the handle
+          startY.current = e.clientY;
+          swiped.current = false;
+        }}
+        onPointerUp={(e) => {
+          const dy = e.clientY - startY.current;
+          swiped.current = Math.abs(dy) > 20;
+          if (swiped.current) setOpen(dy < 0);
+        }}
+        onClick={() => (swiped.current ? (swiped.current = false) : setOpen((o) => !o))}
+        className="flex w-full shrink-0 touch-none flex-col items-center gap-3 pt-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+      >
+        <span className="h-1.5 w-10 rounded-full bg-accent" />
+        {!open && <span className="truncate px-5 pb-4 font-medium">{selected?.name ?? "Nearest bins"}</span>}
+      </button>
+      <div className={`flex flex-col gap-5 overflow-y-auto p-5 pt-4 md:pt-5 ${open ? "" : "max-md:hidden"}`}>
         <div className="hidden md:block">
           <Logo href="/" />
         </div>
