@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon, InfoIcon } from "lucide-react";
+import { AlertCircleIcon, ShieldCheckIcon, UserRoundIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -20,6 +20,9 @@ const copy: Record<Mode, { title: string; subtitle: string; submit: string }> = 
   admin: { title: "Admin sign in", subtitle: "For SmartBin city and campus teams.", submit: "Sign in" },
 };
 
+// One-click accounts for local mode (the API treats DEV_ADMIN_EMAILS as admins)
+const DEMO = { user: "demo@smartbin.local", admin: "admin@smartbin.local" };
+
 // Only same-site paths, so ?next= can't send people to another website
 function nextPath(): string | null {
   const next = new URLSearchParams(window.location.search).get("next");
@@ -32,17 +35,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [busy, setBusy] = useState(false);
   const text = copy[mode];
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const email = String(form.get("email"));
-    const password = String(form.get("password"));
+  // asAdmin: the account must be an admin (admin page, or the quick admin button)
+  async function enter(email: string, password: string, asAdmin: boolean) {
     setError(null);
     setBusy(true);
     try {
       await (mode === "signup" ? signUp : signIn)(email, password);
       const me = await api<Me>("/me");
-      if (mode === "admin" && me.role !== "ADMIN") {
+      if (asAdmin && me.role !== "ADMIN") {
         await signOut();
         throw new Error("This account doesn't have admin access.");
       }
@@ -53,6 +53,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
     }
   }
 
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    enter(String(form.get("email")), String(form.get("password")), mode === "admin");
+  }
+
   return (
     <div className="flex w-full max-w-sm flex-col gap-6">
       <div>
@@ -60,13 +66,27 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <p className="mt-1 text-muted-foreground">{text.subtitle}</p>
       </div>
 
-      {LOCAL_AUTH && (
-        <Alert variant="warning">
-          <InfoIcon />
-          <AlertDescription>
-            <span><strong>Local mode:</strong> any email and password work. Use <code>admin@smartbin.local</code> for admin access.</span>
-          </AlertDescription>
-        </Alert>
+      {LOCAL_AUTH && mode !== "signup" && (
+        <>
+          <div className="flex flex-col gap-2">
+            <Button size="xl" variant="secondary" disabled={busy} onClick={() => enter(DEMO.user, "demo", false)}>
+              <UserRoundIcon data-icon="inline-start" />
+              Continue as user
+            </Button>
+            <Button size="xl" variant="secondary" disabled={busy} onClick={() => enter(DEMO.admin, "demo", true)}>
+              <ShieldCheckIcon data-icon="inline-start" />
+              Continue as admin
+            </Button>
+          </div>
+          <p className="-mt-3 text-sm text-muted-foreground">
+            Local mode: one click, or any email and password below.
+          </p>
+          <div className="flex items-center gap-3 text-sm text-muted-foreground" aria-hidden="true">
+            <span className="h-px flex-1 bg-border" />
+            or with email
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        </>
       )}
 
       <form onSubmit={onSubmit}>
