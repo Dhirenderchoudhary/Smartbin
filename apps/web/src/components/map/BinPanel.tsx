@@ -283,7 +283,8 @@ export function BinPanel({
   onNavigate: (bin: Bin) => void;
   loading: boolean;
 }) {
-  const others = bins.filter((b) => b.id !== selected?.id);
+  // The map can hold hundreds after zooming out; the list keeps to the nearest
+  const others = bins.filter((b) => b.id !== selected?.id).slice(0, 25);
   return (
     <section
       aria-label="Nearby bins"

@@ -11,12 +11,15 @@ import { NavigationPanel } from "@/components/map/NavigationPanel";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Spinner } from "@/components/ui/spinner";
-import { fetchNearby, INDIA_VIEW, lastKnownLocation, metresBetween, watchLocation, type Bin, type BinIssue, type LatLng } from "@/lib/bins";
+import { fetchArea, fetchNearby, INDIA_VIEW, lastKnownLocation, metresBetween, watchLocation, type Bin, type BinIssue, type LatLng } from "@/lib/bins";
 import { routeProgress, walkingRoute, type WalkRoute } from "@/lib/routes";
 
 // Recalculate the route when you're this far off it (and not more often than every 10 s)
 const OFF_ROUTE_M = 35;
 const REROUTE_EVERY_MS = 10_000;
+
+// Past this (about a large city across), the map asks you to zoom in instead of loading bins
+const MAX_VIEW_RADIUS_M = 50_000;
 
 // maplibre needs the browser
 const BinMap = dynamic(() => import("@/components/map/BinMap"), {
@@ -56,12 +59,14 @@ function NearbyPage() {
     const lat = Number(params.get("lat")), lng = Number(params.get("lng"));
     return params.get("lat") && params.get("lng") && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
   });
-  const [pinned, setPinned] = useState<Bin | null>(null);
   const [focus, setFocus] = useState(0);
   // Open where you were last time (kept on this device); India-wide on a first visit
   const [start] = useState<LatLng | null>(() => lastKnownLocation());
   const [watchKey, setWatchKey] = useState(0);
   const loadedAround = useRef<LatLng | null>(null);
+  // Areas already loaded, so panning back over them doesn't fetch again
+  const loadedAreas = useRef<{ center: LatLng; radius: number }[]>([]);
+  const [tooWide, setTooWide] = useState(false);
 
   // Navigation to a bin
   const [navBin, setNavBin] = useState<Bin | null>(null);
@@ -71,17 +76,37 @@ function NearbyPage() {
   const routeRequest = useRef(0); // ignores route answers that arrive after you ended or rerouted
   const wakeLock = useRef<WakeLockSentinel | null>(null);
 
+  // Bins arrive from several places (around you, the area in view, a bin you just added): keep them all
+  const merge = useCallback((list: Bin[]) => {
+    setBins((prev) => [...new Map([...prev, ...list].map((b) => [b.id, b])).values()]);
+  }, []);
+
   const load = useCallback(async (at: LatLng) => {
     setLoading(true);
     setLoadError(null);
     try {
-      setBins(await fetchNearby(at));
+      merge(await fetchNearby(at));
+      loadedAreas.current.push({ center: at, radius: 2000 });
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Couldn't load bins. Try again.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [merge]);
+
+  const loadView = useCallback(
+    (center: LatLng, radius: number) => {
+      setTooWide(radius > MAX_VIEW_RADIUS_M);
+      if (radius > MAX_VIEW_RADIUS_M) return;
+      if (loadedAreas.current.some((a) => metresBetween(a.center, center) + radius <= a.radius)) return;
+      fetchArea(center, radius).then((list) => {
+        merge(list);
+        // ponytail: an area that hit the API's 500 cap is incomplete, so it isn't remembered
+        if (list.length < 500) loadedAreas.current.push({ center, radius });
+      }, () => {});
+    },
+    [merge]
+  );
 
   const reload = useCallback(
     (at: LatLng) => {
@@ -148,7 +173,7 @@ function NearbyPage() {
 
   useEffect(() => {
     if (!addedAt || !selectedId) return;
-    fetchNearby(addedAt).then((near) => setPinned(near.find((b) => b.id === selectedId) ?? null), () => {});
+    fetchNearby(addedAt).then(merge, () => {});
     // Drop the one-off params so a refresh doesn't confirm again
     window.history.replaceState(null, "", `/app?bin=${selectedId}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the bin you just added
@@ -162,11 +187,10 @@ function NearbyPage() {
 
   // Distances from where you are now (the server's are from where the list was loaded), nearest first
   const visible = useMemo(() => {
-    const all = pinned && !bins.some((b) => b.id === pinned.id) ? [...bins, pinned] : bins;
-    const shown = filter === "ALL" ? all : all.filter((b) => b.type === filter || b.type === "BOTH");
+    const shown = filter === "ALL" ? bins : bins.filter((b) => b.type === filter || b.type === "BOTH");
     if (!you) return shown;
     return shown.map((b) => ({ ...b, distance: metresBetween(you, b) })).sort((a, b) => a.distance - b.distance);
-  }, [bins, pinned, filter, you]);
+  }, [bins, filter, you]);
   const selected = visible.find((b) => b.id === selectedId) ?? null;
 
   return (
@@ -182,6 +206,7 @@ function NearbyPage() {
         route={route?.line ?? null}
         follow={follow}
         onUserMove={() => navBin && setFollow(false)}
+        onViewChange={loadView}
       />
 
       {navBin && (
@@ -209,6 +234,12 @@ function NearbyPage() {
           <button type="button" onClick={() => setAdded(false)} className="rounded-full px-2 text-sm underline-offset-4 hover:underline">
             Dismiss
           </button>
+        </div>
+      )}
+
+      {tooWide && !navBin && (
+        <div className="pointer-events-none absolute inset-x-0 top-32 z-10 flex justify-center md:top-20 md:left-[432px]">
+          <span className="rounded-full bg-card px-5 py-3 shadow-float">Zoom in to see bins</span>
         </div>
       )}
 
@@ -311,14 +342,13 @@ function NearbyPage() {
           onSelect={setSelectedId}
           loading={loading}
           onReported={(removed) => {
-            if (removed && you) {
+            if (removed) {
+              setBins((list) => list.filter((b) => b.id !== selectedId));
               setSelectedId(null);
-              reload(you);
             }
           }}
           onIssues={(id: string, issues: BinIssue[]) => {
             setBins((list) => list.map((b) => (b.id === id ? { ...b, issues } : b)));
-            setPinned((p) => (p?.id === id ? { ...p, issues } : p));
           }}
           onNavigate={startNavigation}
         />

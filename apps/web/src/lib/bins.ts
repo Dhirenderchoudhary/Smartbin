@@ -49,6 +49,11 @@ export async function fetchNearby({ lat, lng }: LatLng): Promise<Bin[]> {
   return near.length ? near : api<Bin[]>(`/dustbins/nearby?lat=${lat}&lng=${lng}`);
 }
 
+// Every bin within radius metres (the API caps it at the 500 nearest)
+export function fetchArea({ lat, lng }: LatLng, radius: number): Promise<Bin[]> {
+  return api<Bin[]>(`/dustbins/nearby?lat=${lat}&lng=${lng}&radius=${Math.ceil(radius)}`);
+}
+
 export function reportMissing(binId: string, at: LatLng) {
   return api<{ id: string; missingReports: number; threshold: number; removed: boolean }>(
     `/dustbins/${binId}/report-missing`,

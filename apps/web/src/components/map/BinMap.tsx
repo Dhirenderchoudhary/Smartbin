@@ -78,6 +78,7 @@ export default function BinMap({
   route = null,
   follow = false,
   onUserMove,
+  onViewChange,
 }: {
   /** Your real position; null until the first GPS fix (no dot is drawn until then) */
   you: (LatLng & { heading?: number | null }) | null;
@@ -95,6 +96,8 @@ export default function BinMap({
   follow?: boolean;
   /** You dragged or zoomed the map yourself */
   onUserMove?: () => void;
+  /** The map settled: its centre and the distance to its corner, to load the bins in view */
+  onViewChange?: (center: LatLng, radius: number) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibre | null>(null);
@@ -102,12 +105,14 @@ export default function BinMap({
   const youMarker = useRef<Marker | null>(null);
   const onSelectRef = useRef(onSelect);
   const onUserMoveRef = useRef(onUserMove);
+  const onViewChangeRef = useRef(onViewChange);
   const routeRef = useRef(route);
   const binsRef = useRef(bins);
   useEffect(() => {
     onSelectRef.current = onSelect;
     onUserMoveRef.current = onUserMove;
-  }, [onSelect, onUserMove]);
+    onViewChangeRef.current = onViewChange;
+  }, [onSelect, onUserMove, onViewChange]);
 
   // Create the map once (theme and tile fallback are handled by createMap)
   useEffect(() => {
@@ -116,6 +121,10 @@ export default function BinMap({
     // A theme switch or tile fallback reloads the style, which drops the route layer
     m.on("style.load", () => drawRoute(m, routeRef.current));
     m.on("movestart", (e) => e.originalEvent && onUserMoveRef.current?.());
+    m.on("moveend", () => {
+      const c = m.getCenter();
+      onViewChangeRef.current?.({ lat: c.lat, lng: c.lng }, c.distanceTo(m.getBounds().getNorthEast()));
+    });
     map.current = m;
     const currentPins = pins.current;
     return () => {
@@ -211,8 +220,10 @@ export default function BinMap({
       maxZoom: 16.5,
       duration: 600,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when asked to re-centre or the list arrives
-  }, [focus, bins.length]);
+    // Only when asked to re-centre or the first bins arrive: bins loaded for the area you
+    // panned to must not pull the camera back
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, bins.length > 0]);
 
   // maplibre's CSS makes its container position: relative, so position a wrapper instead
   return (
