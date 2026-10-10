@@ -53,11 +53,12 @@ function youElement(): HTMLDivElement {
 
 // The walking route: a dark line with a light casing (inverts in dark mode, like the rest of the UI)
 const ROUTE = "walk-route";
-function drawRoute(m: MapLibre, line: [number, number][] | null) {
+// styleReady: "style.load" has fired (isStyleLoaded() also waits for every tile, so it can't tell)
+function drawRoute(m: MapLibre, line: [number, number][] | null, styleReady: boolean) {
   const data = { type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: line ?? [] } };
   const source = m.getSource(ROUTE) as GeoJSONSource | undefined;
   if (source) return source.setData(data);
-  if (!m.isStyleLoaded()) return; // added on "style.load" instead
+  if (!styleReady) return; // added on "style.load" instead
   const css = getComputedStyle(document.documentElement);
   m.addSource(ROUTE, { type: "geojson", data });
   m.addLayer({ id: `${ROUTE}-casing`, type: "line", source: ROUTE, layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": css.getPropertyValue("--background").trim(), "line-width": 11 } });
@@ -108,6 +109,7 @@ export default function BinMap({
   const onViewChangeRef = useRef(onViewChange);
   const routeRef = useRef(route);
   const binsRef = useRef(bins);
+  const styleReady = useRef(false);
   useEffect(() => {
     onSelectRef.current = onSelect;
     onUserMoveRef.current = onUserMove;
@@ -119,7 +121,11 @@ export default function BinMap({
     const { map: m, dispose } = createMap(container.current!, start, startZoom);
     m.on("click", () => onSelectRef.current(null));
     // A theme switch or tile fallback reloads the style, which drops the route layer
-    m.on("style.load", () => drawRoute(m, routeRef.current));
+    m.on("styledataloading", () => (styleReady.current = false));
+    m.on("style.load", () => {
+      styleReady.current = true;
+      drawRoute(m, routeRef.current, true);
+    });
     m.on("movestart", (e) => e.originalEvent && onUserMoveRef.current?.());
     m.on("moveend", () => {
       const c = m.getCenter();
@@ -149,7 +155,7 @@ export default function BinMap({
   // Route line
   useEffect(() => {
     routeRef.current = route;
-    if (map.current) drawRoute(map.current, route);
+    if (map.current) drawRoute(map.current, route, styleReady.current);
   }, [route]);
 
   // Navigation: keep you in view, leaving room for the instruction card and the sheet
