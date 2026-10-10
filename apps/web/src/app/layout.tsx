@@ -39,7 +39,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="flex min-h-full flex-col font-sans">{children}</body>
+      {/* Extensions like Grammarly add attributes to <body> before React loads */}
+      <body className="flex min-h-full flex-col font-sans" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }
