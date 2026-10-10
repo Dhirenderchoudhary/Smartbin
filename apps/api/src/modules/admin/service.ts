@@ -252,7 +252,54 @@ export async function getBinDetails(binId: string) {
     .orderBy(desc(binEvents.createdAt))
     .limit(100);
 
-  return { ...(await withImageUrl(bin)), issues: await openIssuesOf(db, binId), timeline };
+  // Last 30 days of use, and how often it fills / how fast it gets sorted (all time)
+  const [usage, [figures]] = await Promise.all([
+    db.execute<{ day: string; views: number; directions: number; arrivals: number }>(sql`
+      select to_char(d.day, 'YYYY-MM-DD') as day,
+        count(i.id) filter (where i.type = 'VIEW')::int as views,
+        count(i.id) filter (where i.type = 'DIRECTIONS')::int as directions,
+        count(i.id) filter (where i.type = 'ARRIVED')::int as arrivals
+      from generate_series((now() at time zone ${TZ})::date - 29, (now() at time zone ${TZ})::date, interval '1 day') as d(day)
+      left join bin_interactions i
+        on i.bin_id = ${binId} and (i.created_at at time zone ${TZ})::date = d.day::date
+      group by d.day
+      order by d.day
+    `),
+    db.execute<Record<string, number | null>>(sql`
+      with reports as (
+        select i.created_at,
+          coalesce((select max(j.resolved_at) from bin_issues j
+            where j.bin_id = i.bin_id and j.type = 'FULL' and j.resolved_at <= i.created_at), ${new Date(bin.createdAt).toISOString()}::timestamptz) as emptied_at
+        from bin_issues i where i.bin_id = ${binId} and i.type = 'FULL'
+      ),
+      cycles as (select emptied_at, min(created_at) as full_at from reports group by emptied_at)
+      select
+        (select count(*) from cycles)::int as full_cycles,
+        (select percentile_cont(0.5) within group (order by extract(epoch from full_at - emptied_at) / 3600) from cycles) as median_hours_to_full,
+        (select count(*) from bin_issues where bin_id = ${binId} and resolved_at is not null)::int as issues_sorted,
+        (select avg(extract(epoch from resolved_at - created_at)) / 3600 from bin_issues where bin_id = ${binId} and resolved_at is not null) as avg_hours_to_fix,
+        (select count(*) from bin_interactions where bin_id = ${binId} and type = 'VIEW')::int as views,
+        (select count(*) from bin_interactions where bin_id = ${binId} and type = 'DIRECTIONS')::int as directions,
+        (select count(*) from bin_interactions where bin_id = ${binId} and type = 'ARRIVED')::int as arrivals
+    `),
+  ]);
+  const hours = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 10) / 10);
+
+  return {
+    ...(await withImageUrl(bin)),
+    issues: await openIssuesOf(db, binId),
+    usage: usage.map((u) => ({ day: u.day, views: Number(u.views), directions: Number(u.directions), arrivals: Number(u.arrivals) })),
+    figures: {
+      fullCycles: Number(figures!.full_cycles),
+      medianHoursToFull: hours(figures!.median_hours_to_full),
+      issuesSorted: Number(figures!.issues_sorted),
+      avgHoursToFix: hours(figures!.avg_hours_to_fix),
+      views: Number(figures!.views),
+      directions: Number(figures!.directions),
+      arrivals: Number(figures!.arrivals),
+    },
+    timeline,
+  };
 }
 
 export async function updateBin(adminId: string, binId: string, body: BinPatchBody) {

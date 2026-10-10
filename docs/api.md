@@ -381,7 +381,7 @@ Searches grouped into ~100 m cells, for heatmaps:
 `unserved` counts searches that found no bin within 500 m: places that need a bin.
 
 ### `GET /admin/bins/:id`
-The same fields as an `/admin/bins` item, plus `issues` (open problems, as in **Bin**) and `timeline`: the bin's last 100 events, newest first (see **Event** below).
+The same fields as an `/admin/bins` item, plus `issues` (open problems, as in **Bin**), `usage` (the last 30 days, one entry per day: `{ day, views, directions, arrivals }`), `figures` (all time: `fullCycles`, `medianHoursToFull`, `issuesSorted`, `avgHoursToFix`, `views`, `directions`, `arrivals`; hours are `null` when there's no data) and `timeline`: the bin's last 100 events, newest first (see **Event** below).
 
 Returns `404` if the bin was removed. Its history is still available from `/admin/events?binId=<id>`.
 
