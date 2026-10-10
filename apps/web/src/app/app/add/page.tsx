@@ -193,7 +193,7 @@ export default function AddBinPage() {
                 {DUPLICATE_RADIUS_M} m apart.
               </AlertDescription>
               <AlertAction>
-                <Button size="sm" variant="secondary" render={<Link href={`/app?bin=${duplicate.id}`} />} nativeButton={false}>
+                <Button variant="secondary" render={<Link href={`/app?bin=${duplicate.id}`} />} nativeButton={false}>
                   View it
                 </Button>
               </AlertAction>
@@ -232,7 +232,7 @@ export default function AddBinPage() {
                 Location set
                 {fromYou !== null && <span className="text-muted-foreground">, {formatDistance(fromYou)} from you</span>}
               </p>
-              <Button type="button" size="sm" variant="secondary" onClick={() => setStep("where")}>
+              <Button type="button" variant="secondary" onClick={() => setStep("where")}>
                 Change
               </Button>
             </div>
@@ -306,7 +306,7 @@ export default function AddBinPage() {
                 <AlertDescription>{problem.text}</AlertDescription>
                 {problem.existingBinId && (
                   <AlertAction>
-                    <Button size="sm" variant="secondary" render={<Link href={`/app?bin=${problem.existingBinId}`} />} nativeButton={false}>
+                    <Button variant="secondary" render={<Link href={`/app?bin=${problem.existingBinId}`} />} nativeButton={false}>
                       View it
                     </Button>
                   </AlertAction>

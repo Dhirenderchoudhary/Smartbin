@@ -30,7 +30,7 @@ export function SiteFooter() {
           <Logo />
           <p className="text-sm text-primary-foreground/60">© {new Date().getFullYear()} SmartBin. Built for cleaner Indian streets.</p>
         </div>
-        <nav className="flex gap-6 text-sm text-primary-foreground/80">
+        <nav className="-my-2 flex gap-6 text-sm text-primary-foreground/80 *:py-3">
           <Link href="/privacy" className="hover:text-primary-foreground">Privacy</Link>
           <Link href="/login" className="hover:text-primary-foreground">Sign in</Link>
           <Link href="/admin/login" className="hover:text-primary-foreground">Admin</Link>

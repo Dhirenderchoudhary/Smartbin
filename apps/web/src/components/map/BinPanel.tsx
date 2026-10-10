@@ -85,7 +85,7 @@ function IssueList({ bin, busy, onSorted }: { bin: Bin; busy: IssueType | null; 
               {issue.reports > 1 && `, by ${issue.reports} people`}
             </p>
           </div>
-          <Button size="sm" variant="secondary" disabled={!!busy} onClick={() => onSorted(issue.type)} aria-label={`Mark as ${SORTED[issue.type].toLowerCase()}`}>
+          <Button variant="secondary" disabled={!!busy} onClick={() => onSorted(issue.type)} aria-label={`Mark as ${SORTED[issue.type].toLowerCase()}`}>
             {busy === issue.type ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}
             {SORTED[issue.type]}
           </Button>
@@ -196,19 +196,19 @@ function SelectedBin({
         </Alert>
       )}
 
-      <div className="flex gap-2">
-        <Button size="xl" className="flex-1" onClick={() => onNavigate(bin)}>
+      <div className="flex flex-wrap gap-2">
+        <Button size="xl" className="min-w-32 flex-1" onClick={() => onNavigate(bin)}>
           <NavigationIcon data-icon="inline-start" />
           Directions
         </Button>
-        <Button size="xl" variant="secondary" onClick={openReport}>
+        <Button size="xl" variant="secondary" className="flex-1" onClick={openReport}>
           <FlagIcon data-icon="inline-start" />
           Report a problem
         </Button>
       </div>
 
       <AlertDialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
-        <AlertDialogContent className="data-[size=default]:max-w-sm">
+        <AlertDialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto data-[size=default]:max-w-sm">
           <AlertDialogHeader>
             <AlertDialogTitle>What&apos;s wrong with this bin?</AlertDialogTitle>
             <AlertDialogDescription>

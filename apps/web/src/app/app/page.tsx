@@ -257,10 +257,10 @@ function NearbyPage() {
         <Link
           href="/"
           aria-label="SmartBin home"
-          className={`pointer-events-auto flex h-11 items-center gap-2 rounded-full pr-4 pl-1.5 font-heading text-lg font-bold md:hidden ${floating}`}
+          className={`pointer-events-auto flex h-11 items-center gap-2 rounded-full pr-1.5 pl-1.5 font-heading text-lg font-bold min-[360px]:pr-4 md:hidden ${floating}`}
         >
           <LogoMark className="size-8" />
-          SmartBin
+          <span className="max-[359px]:sr-only">SmartBin</span>
         </Link>
         <ToggleGroup
           value={[filter]}

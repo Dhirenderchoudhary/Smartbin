@@ -85,7 +85,7 @@ export function NavigationPanel({
               <div className="flex flex-col gap-1">
                 <h2 className="text-2xl">You&apos;ve arrived</h2>
                 <p className="text-muted-foreground">
-                  {bin.name} should be within {ARRIVED_WITHIN_M} m of you. Can&apos;t see it? You can report it missing from here.
+                  {bin.name} should be within {ARRIVED_WITHIN_M} m of you. Can&apos;t see it, or something&apos;s wrong with it? Tap Done, then Report a problem.
                 </p>
               </div>
             </div>
