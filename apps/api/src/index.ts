@@ -15,7 +15,9 @@ import * as AdminController from "./modules/admin/controller.js";
 const app = express();
 
 // Global Middleware
-app.use(cors({ origin: config.CORS_ORIGINS.split(",") }));
+// Local mode also allows any localhost port (Expo web moves to 8082+ when 8081 is taken)
+const localhost = /^http:\/\/localhost:\d+$/;
+app.use(cors({ origin: [...config.CORS_ORIGINS.split(","), ...(config.AUTH_MODE === "dev" ? [localhost] : [])] }));
 app.use(express.json());
 
 // Single Router Instance
