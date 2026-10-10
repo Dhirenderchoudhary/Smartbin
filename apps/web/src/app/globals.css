@@ -1,26 +1,177 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Theme: <html data-theme="light|dark"> is set before first paint by the script in layout.tsx,
+   from the saved choice (light, dark or system). Without JavaScript the site is light. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Uber Base: black and white, colour only where it means something.
+   Wet/dry/warning/negative are Base's own semantic colours. Mirror these in the Expo theme. */
+:root {
+  --radius: 0.5rem;
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #efefef;
+  --secondary-foreground: #000000;
+  --muted: #f3f3f3;
+  --muted-foreground: #5e5e5e;
+  --accent: #e2e2e2;
+  --accent-foreground: #000000;
+  --destructive: #e11900;
+  --border: #e2e2e2;
+  --input: #efefef;
+  --ring: #000000;
+  --chart-1: #000000;
+  --chart-2: #276ef1;
+  --chart-3: #05944f;
+  --chart-4: #ffc043;
+  --chart-5: #e11900;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #efefef;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #e2e2e2;
+  --sidebar-ring: #000000;
+  /* Waste types: green = wet, blue = dry */
+  --wet: #05944f;
+  --dry: #276ef1;
+  --warning: #ffc043;
+  --warning-foreground: #000000;
+  /* Map backdrop under the tiles, and Base elevation for floating items */
+  --map: #e5e5e5;
+  --elev-float: 0 2px 8px rgb(0 0 0 / 0.16);
+  --elev-sheet: 0 4px 16px rgb(0 0 0 / 0.16);
+}
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #141414;
+  --card-foreground: #ffffff;
+  --popover: #1f1f1f;
+  --popover-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --secondary: #282828;
+  --secondary-foreground: #ffffff;
+  --muted: #1f1f1f;
+  --muted-foreground: #a6a6a6;
+  --accent: #333333;
+  --accent-foreground: #ffffff;
+  --destructive: #ff5a3c;
+  --border: #2e2e2e;
+  --input: #282828;
+  --ring: #ffffff;
+  --chart-1: #ffffff;
+  --chart-2: #5b91f5;
+  --chart-3: #06c167;
+  --chart-4: #ffc043;
+  --chart-5: #ff5a3c;
+  --sidebar: #141414;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #282828;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #2e2e2e;
+  --sidebar-ring: #ffffff;
+  --wet: #06c167;
+  --dry: #5b91f5;
+  --map: #1b1b1b;
+  --elev-float: 0 2px 8px rgb(0 0 0 / 0.6);
+  --elev-sheet: 0 4px 16px rgb(0 0 0 / 0.6);
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --font-sans: var(--font-inter);
+  --color-map: var(--map);
+  --shadow-float: var(--elev-float);
+  --shadow-sheet: var(--elev-sheet);
+  --color-muted: var(--muted);
+  --color-wet: var(--wet);
+  --color-dry: var(--dry);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --font-heading: var(--font-inter-tight);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Uber Move-style display: bold, sentence case, no letter-spacing changes */
+  h1, h2 {
+    @apply font-heading font-bold;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Landing hero: the route to the nearest bin draws once on load */
+@keyframes route-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes pin-in {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
 }

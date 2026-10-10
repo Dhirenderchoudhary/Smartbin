@@ -3,6 +3,9 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { config } from "../config/config.js";
 import { ApiError } from "../http/ApiError.js";
 import { v4 as uuidv4 } from "uuid";
+import { deleteLocalImage, localImageUrl, readLocalImage } from "./local.js";
+
+const LOCAL = config.STORAGE_MODE === "local";
 
 const s3Client = new S3Client({ region: config.AWS_REGION });
 
@@ -33,6 +36,10 @@ export async function generateUploadUrl(
     ContentType: contentType,
   });
 
+  if (LOCAL) {
+    return { uploadUrl: localImageUrl(key), key };
+  }
+
   // Presigned URL valid for 5 minutes
   const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 });
 
@@ -40,6 +47,10 @@ export async function generateUploadUrl(
 }
 
 export async function getImageObject(key: string): Promise<{ bytes: Uint8Array; contentType: string }> {
+  if (LOCAL) {
+    return readLocalImage(key);
+  }
+
   let response;
   try {
     response = await s3Client.send(new GetObjectCommand({ Bucket: config.S3_BUCKET_NAME, Key: key }));
@@ -68,11 +79,17 @@ export async function getImageObject(key: string): Promise<{ bytes: Uint8Array; 
 
 // Bucket stays private; clients view images through short-lived signed URLs
 export async function getImageViewUrl(key: string): Promise<string> {
+  if (LOCAL) {
+    return localImageUrl(key);
+  }
   const command = new GetObjectCommand({ Bucket: config.S3_BUCKET_NAME, Key: key });
   return getSignedUrl(s3Client, command, { expiresIn: 3600 });
 }
 
 export async function deleteImageObject(key: string): Promise<void> {
+  if (LOCAL) {
+    return deleteLocalImage(key);
+  }
   try {
     await s3Client.send(new DeleteObjectCommand({ Bucket: config.S3_BUCKET_NAME, Key: key }));
   } catch (err) {

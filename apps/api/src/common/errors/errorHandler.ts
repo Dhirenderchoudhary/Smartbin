@@ -35,6 +35,15 @@ export function errorHandler(
     return;
   }
 
+  // Body over the express.raw / express.json size limit
+  if (err?.type === "entity.too.large") {
+    res.status(400).json({
+      success: false,
+      error: { code: "UNSUPPORTED_MEDIA", message: "Image is too large. The limit is 5 MB." },
+    });
+    return;
+  }
+
   console.error("Unhandled Error:", err);
   res.status(500).json({
     success: false,

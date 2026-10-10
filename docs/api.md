@@ -20,6 +20,9 @@ For the mobile app (Expo) and the admin dashboard (React). All routes live under
 | GET | `/dustbins/nearby` | Bins near a location |
 | POST | `/dustbins` | Register a bin |
 | POST | `/dustbins/:id/report-missing` | Report a bin as missing |
+| POST | `/dustbins/:id/issues` | Report a problem: full, broken, dirty, other |
+| POST | `/dustbins/:id/issues/resolve` | Say a problem is sorted (emptied, fixed) |
+| POST | `/dustbins/:id/interactions` | Record that the user opened a bin, asked for directions or arrived |
 
 **Admins**
 
@@ -30,6 +33,10 @@ For the mobile app (Expo) and the admin dashboard (React). All routes live under
 | GET | `/admin/stats/timeseries` | Daily counts for charts |
 | GET | `/admin/bins` | Bin table with filters and pages |
 | GET | `/admin/bins/map` | All bins for the map |
+| POST | `/admin/bins/resolve-issues` | Mark problems sorted on many bins at once |
+| GET | `/admin/cleaning` | Bins with open problems, most urgent first |
+| GET | `/admin/insights` | Busiest, fastest-filling and slowest-to-fix bins |
+| GET | `/admin/demand` | Where people search for bins, for heatmaps |
 | GET | `/admin/bins/:id` | One bin with its history |
 | PATCH | `/admin/bins/:id` | Edit a bin or reset its reports |
 | DELETE | `/admin/bins/:id` | Delete a bin |
@@ -111,6 +118,7 @@ Every response uses one of two shapes.
 | 403 | `TOO_FAR` | Reporting from more than 20 m away from the bin | "Move closer to the bin" |
 | 404 | `NOT_FOUND` | The bin doesn't exist or was removed | Refresh the list |
 | 404 | `INVALID_IMAGE_KEY` | Nothing was uploaded with this key | Upload again |
+| 409 | `ALREADY_REPORTED` | This user already reported this bin as missing (allowed again after an admin resets its reports), or already has an open report of the same problem | "You've already reported this bin" |
 | 409 | `DUPLICATE_NEARBY` | A bin already exists within 15 m. `details.existingBinId` says which one | Offer to show the existing bin |
 | 422 | `NOT_A_BIN` | The AI didn't see a dustbin in the photo | Ask for a clearer photo |
 | 429 | `QUOTA_EXCEEDED` | The monthly limit is used up. **Checked before anything else**, so it comes back immediately, even if the body is invalid. `details` = `{ field, limit, resetsOn }` | Show `message`, e.g. "Your limit for bin registrations is exhausted. You have used all 10 for this month. It resets on 1 November." |
@@ -131,6 +139,7 @@ Every response uses one of two shapes.
   "status": "ACTIVE",
   "missingReports": 0,
   "createdAt": "2026-10-10T03:52:30.321Z",
+  "issues": [ { "type": "FULL", "reports": 2, "lastReportedAt": "2026-10-10T14:03:09.657Z", "note": null } ],
   "distance": 42.7,
   "imageUrl": "https://smartbin-uploads-bucket.s3.ap-south-1.amazonaws.com/...&X-Amz-Signature=..."
 }
@@ -140,6 +149,7 @@ Every response uses one of two shapes.
 - `distance` is in metres from the location in the request.
 - `imageUrl` is a signed link that works for **1 hour**. Don't save it; fetch the list again to get a fresh one.
 - `status` is always `ACTIVE`.
+- `issues` lists the bin's open problems, one entry per type, most recent first, with the latest `note` people wrote (or `null`). Empty when there are none.
 
 ---
 
@@ -203,8 +213,9 @@ Content-Type: image/jpeg      ← must match the contentType from step 1
 
 ### `GET /dustbins/nearby?lat=28.61&lng=77.20&radius=500`
 
-- `lat` and `lng` are required. `radius` is optional, in metres, 1–5000.
-- **With `radius`:** every bin within that distance, nearest first.
+- `lat` and `lng` are required. `radius` is optional, in metres, 1–50000.
+- `log=1` counts the request as a "bins near me" search in the admin stats (anonymous, rounded to ~100 m). Send it on the app's own nearby load, **not** on loads for a map the user is panning.
+- **With `radius`:** every bin within that distance, nearest first, up to the **500 nearest**.
 - **Without `radius`:** the **5 nearest** bins.
 - `200`: an array of **Bin**.
 
@@ -221,7 +232,53 @@ Send the user's **current GPS position**; it must be within 20 m of the bin.
 
 When `removed` is `true`, the bin was deleted, so take it off the map. `message` says either `"Missing report logged (2/3)."` or `"Dustbin removed after reaching 3 missing reports."`
 
-Possible errors: `400`, `403 TOO_FAR`, `404 NOT_FOUND`, `429 QUOTA_EXCEEDED`.
+Each user can report a bin **once**. A second report returns `409 ALREADY_REPORTED`.
+
+Possible errors: `400`, `403 TOO_FAR`, `404 NOT_FOUND`, `409 ALREADY_REPORTED`, `429 QUOTA_EXCEEDED`.
+
+### `POST /dustbins/:id/issues`
+Report a problem with a bin that is still there.
+```json
+{ "type": "FULL", "note": "Overflowing onto the pavement", "lat": 28.6139, "lng": 77.2090 }
+```
+
+- `type` is `FULL`, `BROKEN`, `DIRTY` or `OTHER`.
+- `note` is optional, up to 200 characters, and **required** for `OTHER`.
+- `lat`/`lng` is the user's current GPS position; it must be within **50 m** of the bin.
+- A problem stays open until someone marks it sorted or an admin clears it. `FULL` also closes by itself after **24 hours** (admin setting `fullIssueHours`).
+- Each user can have one open report per problem type per bin. A second one returns `409 ALREADY_REPORTED`.
+- No monthly quota.
+
+Returns `201` with the bin's open problems:
+```json
+{ "id": "uuid", "issues": [ { "type": "FULL", "reports": 1, "lastReportedAt": "…" } ] }
+```
+
+Possible errors: `400`, `403 TOO_FAR`, `404 NOT_FOUND`, `409 ALREADY_REPORTED`.
+
+### `POST /dustbins/:id/issues/resolve`
+Someone at the bin says a problem is sorted (the bin was emptied, cleaned or fixed). Closes every open report of that type.
+```json
+{ "type": "FULL", "lat": 28.6139, "lng": 77.2090 }
+```
+
+Must be within 50 m of the bin. Returns `{ "id": "uuid", "resolved": 2, "issues": [ … ] }`; `resolved` is how many reports were closed (0 if none were open).
+
+Possible errors: `400`, `403 TOO_FAR`, `404 NOT_FOUND`.
+
+### `POST /dustbins/:id/interactions`
+Tells admins which bins people use. Fire and forget: don't wait for it or show errors.
+```json
+{ "type": "VIEW" }
+```
+
+| `type` | Send when |
+|---|---|
+| `VIEW` | The user opens a bin's details |
+| `DIRECTIONS` | The user starts directions to it |
+| `ARRIVED` | The user gets within 20 m while navigating |
+
+Repeats are ignored for a while (VIEW and ARRIVED: 1 hour, DIRECTIONS: 10 minutes per user and bin), so it's safe to send on every open. Returns `{ "recorded": true }`, or `false` when it was a repeat or the bin no longer exists.
 
 ---
 
@@ -241,16 +298,23 @@ Returns `200` if the token belongs to an admin. Useful as a check right after lo
   "new":     { "today": 3, "last7Days": 21, "last30Days": 88 },
   "reports": { "today": 5, "last7Days": 19 },
   "removed": { "today": 1, "last7Days": 4, "total": 12, "byAdmin": 2 },
-  "users":   { "total": 56, "newLast7Days": 9 }
+  "users":   { "total": 56, "newLast7Days": 9 },
+  "issues":  { "needsCleaning": 6, "open": { "FULL": 4, "BROKEN": 1, "DIRTY": 2, "OTHER": 0 }, "today": 5, "avgHoursToFix": 7.5 },
+  "demand":  { "searchesToday": 140, "searchesLast7Days": 910, "unservedLast7Days": 85,
+               "viewsToday": 60, "directionsToday": 22, "directionsLast7Days": 150 }
 }
 ```
 
 - `atRisk`: active bins with 1 or 2 missing reports.
 - `removed.total`: bins removed by 3 user reports.
 - `removed.byAdmin`: bins deleted by an admin.
+- `issues.needsCleaning`: bins with at least one open problem. `open` counts open reports by type.
+- `issues.avgHoursToFix`: average hours from a problem report to it being marked sorted, over the last 30 days (`null` if none).
+- `demand`: "bins near me" searches, bin opens and directions. `unservedLast7Days` = searches with no bin within 500 m.
 
 ### `GET /admin/stats/timeseries?days=14`: line chart
 `days` is 1–90 (default 14). There is one entry per day, oldest first, and days with no activity come back as zeros.
+Besides the fields below, each day has `issueReports`, `issuesResolved`, `searches`, `views` and `directions`.
 ```json
 {
   "days": 14,
@@ -266,28 +330,69 @@ Returns `200` if the token belongs to an admin. Useful as a check right after lo
 | `type` | `WET`, `DRY` or `BOTH` |
 | `reported` | `true`: only bins with at least 1 report. `false`: only bins with none |
 | `q` | Search by name (case-insensitive, matches part of the name) |
-| `sort` | `newest` (default), `oldest`, `mostReported` |
+| `issue` | `ANY`: bins with an open problem. Or one type: `FULL`, `BROKEN`, `DIRTY`, `OTHER` |
+| `sort` | `newest` (default), `oldest`, `mostReported`, `demand` (most opened and navigated to in 30 days) |
 
-Each item has all the bin fields, plus `createdBy` (user id), `creatorEmail` and `imageUrl` (signed, 1 hour).
+Each item has all the bin fields, plus `createdBy` (user id), `creatorEmail`, `imageUrl` (signed, 1 hour), `issues` (open problems, as in **Bin**) and `demand30` (opens + directions in the last 30 days).
 
 ### `GET /admin/bins/map`
 Every active bin in one call, with no pages. Use it for the map view.
 ```json
-[ { "id": "uuid", "name": "SmartBin", "type": "WET", "latitude": 28.61, "longitude": 77.20, "missingReports": 0 } ]
+[ { "id": "uuid", "name": "SmartBin", "type": "WET", "latitude": 28.61, "longitude": 77.20, "missingReports": 0,
+    "createdAt": "…", "issues": [], "demand30": 12 } ]
 ```
 
+### `POST /admin/bins/resolve-issues`
+```json
+{ "binIds": ["uuid", "uuid"], "type": "FULL" }
+```
+Marks open problems sorted on up to 100 bins. Leave out `type` to clear every type. Returns `{ "bins": 2, "resolved": 5 }`.
+
+### `GET /admin/cleaning`: cleaning queue
+Every bin with an open problem, most urgent first. Each item:
+```json
+{ "id": "uuid", "name": "Gate 2", "type": "WET", "latitude": 28.61, "longitude": 77.20, "imageUrl": "…",
+  "missingReports": 0, "issues": [ … ], "reports": 3, "demand7": 14,
+  "oldestReportAt": "…", "hoursOpen": 5.2, "priority": 21.2 }
+```
+`priority` = 3 × open reports + hours since the oldest one + half the opens and directions in the last 7 days.
+
+### `GET /admin/insights?days=30`
+`days` is 1–365 (default 30).
+```json
+{
+  "days": 30,
+  "busiest":        [ { "id": "uuid", "name": "…", "type": "WET", "latitude": 28.6, "longitude": 77.2, "views": 40, "directions": 12, "arrivals": 9 } ],
+  "fastestFilling": [ { "id": "uuid", "name": "…", "…": "…", "cycles": 6, "medianHoursToFull": 9.5 } ],
+  "slowestToFix":   [ { "id": "uuid", "name": "…", "…": "…", "fixed": 4, "avgHoursToFix": 30.1 } ],
+  "issuesByType":   { "FULL": 40, "BROKEN": 3, "DIRTY": 8, "OTHER": 1 },
+  "fullReportsByHour": [ { "hour": 0, "reports": 0 }, "… 24 entries, Indian time" ]
+}
+```
+- `fastestFilling`: median hours from the bin being emptied (a FULL report marked sorted, or the bin being added) to the next FULL report. Top 10, fastest first.
+- `slowestToFix`: average hours from report to sorted. Top 10, slowest first.
+
+### `GET /admin/demand?days=30`
+Searches grouped into ~100 m cells, for heatmaps:
+```json
+{ "days": 30, "totalSearches": 910, "unservedSearches": 85,
+  "cells": [ { "lat": 28.632, "lng": 77.217, "searches": 40, "unserved": 0 } ] }
+```
+`unserved` counts searches that found no bin within 500 m: places that need a bin.
+
 ### `GET /admin/bins/:id`
-The same fields as an `/admin/bins` item, plus `timeline`: the bin's last 100 events, newest first (see **Event** below).
+The same fields as an `/admin/bins` item, plus `issues` (open problems, as in **Bin**), `usage` (the last 30 days, one entry per day: `{ day, views, directions, arrivals }`), `figures` (all time: `fullCycles`, `medianHoursToFull`, `issuesSorted`, `avgHoursToFix`, `views`, `directions`, `arrivals`; hours are `null` when there's no data) and `timeline`: the bin's last 100 events, newest first (see **Event** below).
 
 Returns `404` if the bin was removed. Its history is still available from `/admin/events?binId=<id>`.
 
 ### `PATCH /admin/bins/:id`
 Send any combination of these, at least one:
 ```json
-{ "name": "Gate 2 bin", "type": "WET", "resetReports": true }
+{ "name": "Gate 2 bin", "type": "WET", "resetReports": true, "resolveIssues": "FULL" }
 ```
 
 - `resetReports: true` sets missing reports back to 0, for a bin that turned out not to be missing.
+- `resolveIssues` closes open problems: `true` for every type, or one type such as `"FULL"`.
 - Any other field is rejected with `400`.
 - Returns the updated bin.
 - Every change is recorded in the bin's history.
@@ -326,6 +431,8 @@ The bin's history stays, ending with an `ADMIN_DELETE` event. Returns `404` if t
 | `REMOVED` | Removed after 3 reports | snapshot of the bin |
 | `ADMIN_EDIT` | An admin changed the name or type | `{ before, after }` |
 | `ADMIN_RESET_REPORTS` | An admin reset the reports to 0 | `{ previousMissingReports }` |
+| `ISSUE_REPORT` | A user reported a problem (position = where they stood) | `{ issue, note? }` |
+| `ISSUE_RESOLVED` | A user or admin marked problems sorted | `{ issues, reports }` |
 | `ADMIN_DELETE` | An admin deleted the bin | snapshot of the bin |
 
 Tip: `?type=REMOVED` gives a "removed bins" page.
@@ -351,7 +458,8 @@ Paginated, newest users first.
       "isDefault": true, "updatedAt": null, "updatedByEmail": null
     },
     { "key": "quotaLimitMissingReports", "label": "Missing reports per user per month", "value": 15, "default": 15, "min": 0, "max": 100, "isDefault": true },
-    { "key": "missingReportsThreshold", "label": "Missing reports needed to remove a bin", "value": 3, "default": 3, "min": 1, "max": 20, "isDefault": true }
+    { "key": "missingReportsThreshold", "label": "Missing reports needed to remove a bin", "value": 3, "default": 3, "min": 1, "max": 20, "isDefault": true },
+    { "key": "fullIssueHours", "label": "Hours a 'full' report stays open if nobody marks the bin emptied", "value": 24, "default": 24, "min": 1, "max": 168, "isDefault": true }
   ],
   "history": [
     { "id": "uuid", "key": "missingReportsThreshold", "oldValue": 3, "newValue": 2, "changedBy": "uuid", "changedByEmail": "admin@x.com", "changedAt": "…" }
@@ -386,4 +494,17 @@ cd packages/db && npx drizzle-kit push
 cd ../../apps/api && npm install && npm run dev
 ```
 
-**CORS:** the API only accepts browser requests from addresses listed in `CORS_ORIGINS` in `apps/api/.env`. The default is `http://localhost:5173,http://localhost:3000`, so add your dev server's address if it's different.
+**Local mode (no AWS, no AI key).** The defaults in `apps/api/.env.example` run everything on your machine:
+
+| Setting | Local value | What it does | On AWS |
+|---|---|---|---|
+| `AUTH_MODE` | `dev` | No Cognito. Send the user's **email as the token**: `Authorization: Bearer you@example.com`. Emails in `DEV_ADMIN_EMAILS` (default `admin@smartbin.local`) are admins | `cognito` |
+| `STORAGE_MODE` | `local` | Photos are saved in `apps/api/.local-uploads`. `uploadUrl` and `imageUrl` point at the API itself; the upload step (`PUT` with `Content-Type`) is unchanged | `s3` |
+| `VISION_PROVIDER` | `off` | Every photo passes the AI check | `openai` or `bedrock` |
+| `API_PUBLIC_URL` | `http://localhost:3000` | Base of local photo links. **For Expo on a phone**, set it to your PC's LAN address, e.g. `http://192.168.1.10:3000` | not used |
+
+The API refuses to start with any of these local values when `NODE_ENV=production`.
+
+New database? Run `npx drizzle-kit push` in `packages/db` first.
+
+**CORS:** the API only accepts browser requests from addresses listed in `CORS_ORIGINS` in `apps/api/.env`. The default is `http://localhost:3001,http://localhost:5173` (the web app runs on 3001), so add your dev server's address if it's different.

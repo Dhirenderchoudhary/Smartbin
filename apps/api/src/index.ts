@@ -5,6 +5,7 @@ import { authenticateToken } from "./common/auth/middleware.js";
 import { requireAdmin } from "./common/auth/guards.js";
 import { requireQuota } from "./modules/user/quota.js";
 import { errorHandler } from "./common/errors/errorHandler.js";
+import { localUploadsRouter } from "./common/storage/local.js";
 
 import * as HealthController from "./modules/health/controller.js";
 import * as UserController from "./modules/user/controller.js";
@@ -14,7 +15,9 @@ import * as AdminController from "./modules/admin/controller.js";
 const app = express();
 
 // Global Middleware
-app.use(cors({ origin: config.CORS_ORIGINS.split(",") }));
+// Local mode also allows any localhost port (Expo web moves to 8082+ when 8081 is taken)
+const localhost = /^http:\/\/localhost:\d+$/;
+app.use(cors({ origin: [...config.CORS_ORIGINS.split(","), ...(config.AUTH_MODE === "dev" ? [localhost] : [])] }));
 app.use(express.json());
 
 // Single Router Instance
@@ -32,6 +35,9 @@ apiRouter.get("/dustbins/upload-url", authenticateToken, DustbinController.getPr
 apiRouter.get("/dustbins/nearby", authenticateToken, DustbinController.getNearby);
 apiRouter.post("/dustbins", authenticateToken, requireQuota("registrations"), DustbinController.create);
 apiRouter.post("/dustbins/:id/report-missing", authenticateToken, requireQuota("missingReports"), DustbinController.reportMissing);
+apiRouter.post("/dustbins/:id/issues", authenticateToken, DustbinController.reportIssue);
+apiRouter.post("/dustbins/:id/issues/resolve", authenticateToken, DustbinController.resolveIssue);
+apiRouter.post("/dustbins/:id/interactions", authenticateToken, DustbinController.interaction);
 
 // --- Admin Endpoints ---
 const adminOnly = [authenticateToken, requireAdmin];
@@ -40,6 +46,10 @@ apiRouter.get("/admin/stats", adminOnly, AdminController.stats);
 apiRouter.get("/admin/stats/timeseries", adminOnly, AdminController.timeseries);
 apiRouter.get("/admin/bins", adminOnly, AdminController.bins);
 apiRouter.get("/admin/bins/map", adminOnly, AdminController.binsMap);
+apiRouter.post("/admin/bins/resolve-issues", adminOnly, AdminController.resolveIssues);
+apiRouter.get("/admin/demand", adminOnly, AdminController.demand);
+apiRouter.get("/admin/insights", adminOnly, AdminController.insights);
+apiRouter.get("/admin/cleaning", adminOnly, AdminController.cleaning);
 apiRouter.get("/admin/bins/:id", adminOnly, AdminController.binDetails);
 apiRouter.patch("/admin/bins/:id", adminOnly, AdminController.patchBin);
 apiRouter.delete("/admin/bins/:id", adminOnly, AdminController.removeBin);
@@ -47,6 +57,11 @@ apiRouter.get("/admin/events", adminOnly, AdminController.events);
 apiRouter.get("/admin/users", adminOnly, AdminController.usersList);
 apiRouter.get("/admin/settings", adminOnly, AdminController.settings);
 apiRouter.put("/admin/settings", adminOnly, AdminController.updateSettings);
+
+// Photo upload/view routes for STORAGE_MODE=local (stand-in for S3 signed links)
+if (config.STORAGE_MODE === "local") {
+  app.use("/v1/local-uploads", localUploadsRouter);
+}
 
 // Mount single router under /v1
 app.use("/v1", apiRouter);

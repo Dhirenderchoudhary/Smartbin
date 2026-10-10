@@ -24,11 +24,18 @@ export {
   users,
   userMonthlyUsage,
   binEvents,
+  binIssues,
+  binInteractions,
+  searchLogs,
+  BIN_INTERACTION_TYPES,
+  type BinInteractionType,
+  BIN_ISSUE_TYPES,
+  type BinIssueType,
   appSettings,
   settingChanges,
   BIN_EVENT_TYPES,
   type BinEventType,
 } from "./schema.js";
-export { eq, sql, and, desc, asc, gt, ilike, count, getTableColumns } from "drizzle-orm";
+export { eq, sql, and, desc, asc, gt, ilike, count, getTableColumns, isNull, inArray, gte, lte, or } from "drizzle-orm";
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

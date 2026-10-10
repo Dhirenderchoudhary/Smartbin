@@ -21,6 +21,12 @@ export const SETTING_DEFINITIONS = {
     max: 20,
     default: () => config.MISSING_REPORTS_THRESHOLD,
   },
+  fullIssueHours: {
+    label: "Hours a 'full' report stays open if nobody marks the bin emptied",
+    min: 1,
+    max: 168,
+    default: () => 24,
+  },
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFINITIONS;

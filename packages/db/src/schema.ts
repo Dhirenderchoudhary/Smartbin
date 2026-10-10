@@ -64,6 +64,8 @@ export const BIN_EVENT_TYPES = [
   "ADMIN_EDIT",
   "ADMIN_DELETE",
   "ADMIN_RESET_REPORTS",
+  "ISSUE_REPORT",
+  "ISSUE_RESOLVED",
 ] as const;
 
 export type BinEventType = (typeof BIN_EVENT_TYPES)[number];
@@ -87,4 +89,62 @@ export const binEvents = pgTable(
     index("bin_events_type_created_at_idx").on(t.type, t.createdAt),
     index("bin_events_user_id_idx").on(t.userId),
   ]
+);
+
+export const BIN_ISSUE_TYPES = ["FULL", "BROKEN", "DIRTY", "OTHER"] as const;
+export type BinIssueType = (typeof BIN_ISSUE_TYPES)[number];
+
+// Problems people report with a bin that's still there (missing bins use missing_reports).
+// A report is open until someone at the bin, or an admin, marks it resolved; FULL also expires on its own.
+export const binIssues = pgTable(
+  "bin_issues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    binId: uuid("bin_id")
+      .notNull()
+      .references(() => bins.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type", { enum: BIN_ISSUE_TYPES }).notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: uuid("resolved_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [index("bin_issues_bin_id_idx").on(t.binId)]
+);
+
+export const BIN_INTERACTION_TYPES = ["VIEW", "DIRECTIONS", "ARRIVED"] as const;
+export type BinInteractionType = (typeof BIN_INTERACTION_TYPES)[number];
+
+// How much people want each bin: opened it, asked for directions, walked there.
+// Separate from bin_events (the admin audit trail), which these would drown out.
+export const binInteractions = pgTable(
+  "bin_interactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    binId: uuid("bin_id")
+      .notNull()
+      .references(() => bins.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type", { enum: BIN_INTERACTION_TYPES }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("bin_interactions_bin_id_created_at_idx").on(t.binId, t.createdAt),
+    index("bin_interactions_type_created_at_idx").on(t.type, t.createdAt),
+  ]
+);
+
+// Where people look for bins. Anonymous on purpose: no user, position rounded to ~100 m.
+// binsNearby = 0 marks a spot where people want a bin and there isn't one.
+export const searchLogs = pgTable(
+  "search_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    latCell: doublePrecision("lat_cell").notNull(),
+    lngCell: doublePrecision("lng_cell").notNull(),
+    binsNearby: integer("bins_nearby").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("search_logs_created_at_idx").on(t.createdAt)]
 );

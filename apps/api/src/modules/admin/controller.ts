@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { ApiResponse } from "../../common/http/ApiResponse.js";
+import { getCleaningQueue, getDemand, getInsights } from "./analytics.js";
 import {
+  resolveIssuesForBins,
   deleteBin,
   getBinDetails,
   getBinsForMap,
@@ -15,6 +17,8 @@ import {
   binIdParams,
   binPatchBody,
   binsListQuery,
+  daysQuery,
+  resolveIssuesBody,
   eventsQuery,
   settingsBody,
   timeseriesQuery,
@@ -118,6 +122,41 @@ export async function usersList(req: Request, res: Response, next: NextFunction)
   try {
     const { page, pageSize } = usersQuery.parse(req.query);
     res.status(200).json(ApiResponse.success(await listUsers(page, pageSize)));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function demand(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { days } = daysQuery.parse(req.query);
+    res.status(200).json(ApiResponse.success(await getDemand(days)));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function insights(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { days } = daysQuery.parse(req.query);
+    res.status(200).json(ApiResponse.success(await getInsights(days)));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function cleaning(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.status(200).json(ApiResponse.success(await getCleaningQueue()));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resolveIssues(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { binIds, type } = resolveIssuesBody.parse(req.body);
+    res.status(200).json(ApiResponse.success(await resolveIssuesForBins(req.user!.id, binIds, type), "Marked as sorted"));
   } catch (error) {
     next(error);
   }
