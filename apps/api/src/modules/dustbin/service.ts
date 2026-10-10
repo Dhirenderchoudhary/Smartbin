@@ -44,7 +44,6 @@ export async function getNearbyBins(lat: number, lng: number, radiusMeters?: num
       longitude: bins.longitude,
       status: bins.status,
       missingReports: bins.missingReports,
-      fillPercent: bins.fillPercent,
       createdAt: bins.createdAt,
       distance: distance.mapWith(Number)
     })

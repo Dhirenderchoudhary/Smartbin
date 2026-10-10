@@ -130,7 +130,6 @@ Every response uses one of two shapes.
   "longitude": 77.2090,
   "status": "ACTIVE",
   "missingReports": 0,
-  "fillPercent": 0,
   "createdAt": "2026-10-10T03:52:30.321Z",
   "distance": 42.7,
   "imageUrl": "https://smartbin-uploads-bucket.s3.ap-south-1.amazonaws.com/...&X-Amz-Signature=..."
@@ -141,7 +140,6 @@ Every response uses one of two shapes.
 - `distance` is in metres from the location in the request.
 - `imageUrl` is a signed link that works for **1 hour**. Don't save it; fetch the list again to get a fresh one.
 - `status` is always `ACTIVE`.
-- `fillPercent` is reserved and always `0` for now.
 
 ---
 

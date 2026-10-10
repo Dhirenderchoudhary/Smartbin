@@ -9,7 +9,6 @@ export const bins = pgTable("bins", {
   longitude: doublePrecision("longitude").notNull(),
   status: text("status", { enum: ["ACTIVE", "MISSING"] }).notNull().default("ACTIVE"),
   missingReports: integer("missing_reports").notNull().default(0),
-  fillPercent: integer("fill_percent").notNull().default(0),
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
