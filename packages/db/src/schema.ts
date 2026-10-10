@@ -36,6 +36,28 @@ export const userMonthlyUsage = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.month] })]
 );
 
+// Admin-editable settings (quota limits, removal threshold). Missing keys fall back to .env defaults.
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Who changed which setting, from what, to what
+export const settingChanges = pgTable(
+  "setting_changes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    key: text("key").notNull(),
+    oldValue: jsonb("old_value"),
+    newValue: jsonb("new_value").notNull(),
+    changedBy: uuid("changed_by").references(() => users.id, { onDelete: "set null" }),
+    changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("setting_changes_changed_at_idx").on(t.changedAt)]
+);
+
 export const BIN_EVENT_TYPES = [
   "REGISTERED",
   "MISSING_REPORT",

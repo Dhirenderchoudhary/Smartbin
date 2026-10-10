@@ -3,6 +3,7 @@ import cors from "cors";
 import { config } from "./common/config/config.js";
 import { authenticateToken } from "./common/auth/middleware.js";
 import { requireAdmin } from "./common/auth/guards.js";
+import { requireQuota } from "./modules/user/quota.js";
 import { errorHandler } from "./common/errors/errorHandler.js";
 
 import * as HealthController from "./modules/health/controller.js";
@@ -29,8 +30,8 @@ apiRouter.get("/me/quota", authenticateToken, UserController.getQuota);
 // --- Module: Dustbin ---
 apiRouter.get("/dustbins/upload-url", authenticateToken, DustbinController.getPresignedUrl);
 apiRouter.get("/dustbins/nearby", authenticateToken, DustbinController.getNearby);
-apiRouter.post("/dustbins", authenticateToken, DustbinController.create);
-apiRouter.post("/dustbins/:id/report-missing", authenticateToken, DustbinController.reportMissing);
+apiRouter.post("/dustbins", authenticateToken, requireQuota("registrations"), DustbinController.create);
+apiRouter.post("/dustbins/:id/report-missing", authenticateToken, requireQuota("missingReports"), DustbinController.reportMissing);
 
 // --- Admin Endpoints ---
 const adminOnly = [authenticateToken, requireAdmin];
@@ -44,6 +45,8 @@ apiRouter.patch("/admin/bins/:id", adminOnly, AdminController.patchBin);
 apiRouter.delete("/admin/bins/:id", adminOnly, AdminController.removeBin);
 apiRouter.get("/admin/events", adminOnly, AdminController.events);
 apiRouter.get("/admin/users", adminOnly, AdminController.usersList);
+apiRouter.get("/admin/settings", adminOnly, AdminController.settings);
+apiRouter.put("/admin/settings", adminOnly, AdminController.updateSettings);
 
 // Mount single router under /v1
 app.use("/v1", apiRouter);

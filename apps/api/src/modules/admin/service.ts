@@ -16,10 +16,11 @@ import {
 import { ApiError } from "../../common/http/ApiError.js";
 import { deleteImageObject, getImageViewUrl } from "../../common/storage/s3.js";
 import { logBinEvent } from "../../common/events.js";
+import { APP_TIMEZONE } from "../../common/time.js";
 import type { BinPatchBody, BinsListQuery, EventsQuery } from "./schemas.js";
 
 // "Today" and daily buckets follow Indian time, not UTC
-const TZ = "Asia/Kolkata";
+const TZ = APP_TIMEZONE;
 const todayStart = sql`(date_trunc('day', now() at time zone ${TZ}) at time zone ${TZ})`;
 
 function paged<T>(items: T[], page: number, pageSize: number, total: number) {

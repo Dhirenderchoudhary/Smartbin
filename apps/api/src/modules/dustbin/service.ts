@@ -1,6 +1,6 @@
 import { getDb, sql, eq, and, type Transaction } from "@smartbin/db";
 import { bins } from "@smartbin/db";
-import { config } from "../../common/config/config.js";
+import { getSettings } from "../../common/settings.js";
 import { ApiError } from "../../common/http/ApiError.js";
 import { verifyDustbinImage } from "../../common/ai/vision.js";
 import {
@@ -9,7 +9,7 @@ import {
   getImageViewUrl,
   userImagePrefix,
 } from "../../common/storage/s3.js";
-import { consumeQuota, getUsage, quotaExceeded } from "../user/quota.js";
+import { consumeQuota } from "../user/quota.js";
 import { logBinEvent } from "../../common/events.js";
 import type { CreateBinInput } from "./schemas.js";
 
@@ -90,12 +90,8 @@ export async function createBin(userId: string, data: CreateBinInput) {
     throw ApiError.forbidden("This image key does not belong to you.", "INVALID_IMAGE_KEY");
   }
 
-  // 2. Cheap checks before paying for the AI call
-  const usage = await getUsage(userId);
-  if (usage.registrations >= config.QUOTA_LIMIT_REGISTRATIONS) {
-    throw quotaExceeded("registrations");
-  }
-
+  // 2. Cheap duplicate check before paying for the AI call
+  //    (the monthly quota was already checked by requireQuota on the route)
   const db = getDb();
   const nearby = await findBinWithin(db, data.latitude, data.longitude, DUPLICATE_RADIUS_M);
   if (nearby) {
@@ -123,7 +119,7 @@ export async function createBin(userId: string, data: CreateBinInput) {
       throw duplicateNearby(duplicate.id);
     }
 
-    await consumeQuota(tx, userId, "registrations", config.QUOTA_LIMIT_REGISTRATIONS);
+    await consumeQuota(tx, userId, "registrations");
 
     const [newBin] = await tx
       .insert(bins)
@@ -189,9 +185,10 @@ export async function reportMissingBin(userId: string, binId: string, userLat: n
     );
   }
 
-  // 3. Count the report; at the threshold the bin is removed and must be registered again
+  // 3. Count the report; at the threshold (admin-set) the bin is removed and must be registered again
+  const { missingReportsThreshold: threshold } = await getSettings();
   const result = await db.transaction(async (tx) => {
-    await consumeQuota(tx, userId, "missingReports", config.QUOTA_LIMIT_MISSING_REPORTS);
+    await consumeQuota(tx, userId, "missingReports");
 
     const [updatedBin] = await tx
       .update(bins)
@@ -214,7 +211,7 @@ export async function reportMissingBin(userId: string, binId: string, userLat: n
       meta: { reportNumber: updatedBin.missingReports },
     });
 
-    const removed = updatedBin.missingReports >= config.MISSING_REPORTS_THRESHOLD;
+    const removed = updatedBin.missingReports >= threshold;
     if (removed) {
       await tx.delete(bins).where(eq(bins.id, binId));
       await logBinEvent(tx, {
@@ -243,7 +240,7 @@ export async function reportMissingBin(userId: string, binId: string, userLat: n
   return {
     id: result.id,
     missingReports: result.missingReports,
-    threshold: config.MISSING_REPORTS_THRESHOLD,
+    threshold,
     removed: result.removed,
   };
 }

@@ -16,9 +16,11 @@ import {
   binPatchBody,
   binsListQuery,
   eventsQuery,
+  settingsBody,
   timeseriesQuery,
   usersQuery,
 } from "./schemas.js";
+import { getAdminSettings, updateAdminSettings } from "./settings.js";
 
 export async function stats(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -88,6 +90,25 @@ export async function events(req: Request, res: Response, next: NextFunction): P
   try {
     const query = eventsQuery.parse(req.query);
     res.status(200).json(ApiResponse.success(await listEvents(query)));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function settings(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.status(200).json(ApiResponse.success(await getAdminSettings()));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const body = settingsBody.parse(req.body);
+    const result = await updateAdminSettings(req.user!.id, body);
+    const message = result.changed.length > 0 ? "Settings updated" : "No changes";
+    res.status(200).json(ApiResponse.success(result, message));
   } catch (error) {
     next(error);
   }

@@ -35,6 +35,8 @@ For the mobile app (Expo) and the admin dashboard (React). All routes live under
 | DELETE | `/admin/bins/:id` | Delete a bin |
 | GET | `/admin/events` | Activity feed |
 | GET | `/admin/users` | User table |
+| GET | `/admin/settings` | Current limits, with defaults, ranges and change history |
+| PUT | `/admin/settings` | Change limits |
 
 ---
 
@@ -44,7 +46,8 @@ For the mobile app (Expo) and the admin dashboard (React). All routes live under
 - Registering needs a photo that the AI recognises as a dustbin, and **no other bin within 15 m**.
 - Reporting a bin missing needs the user to be **within 20 m** of it.
 - After **3 missing reports**, the bin is **removed**. If it is actually still there, someone registers it again. Admins keep its full history.
-- **Monthly limits per user:** 10 registrations and 15 missing reports. They reset on the 1st of each month.
+- **Monthly limits per user:** 10 registrations and 15 missing reports.
+- Admins can change all three numbers from the **Settings** page (see `/admin/settings`). The figures above are the defaults. They reset at **midnight IST** on the 1st of each month. Only successful actions count; a rejected photo or a duplicate doesn't use up a registration.
 
 ---
 
@@ -110,7 +113,7 @@ Every response uses one of two shapes.
 | 404 | `INVALID_IMAGE_KEY` | Nothing was uploaded with this key | Upload again |
 | 409 | `DUPLICATE_NEARBY` | A bin already exists within 15 m. `details.existingBinId` says which one | Offer to show the existing bin |
 | 422 | `NOT_A_BIN` | The AI didn't see a dustbin in the photo | Ask for a clearer photo |
-| 429 | `QUOTA_EXCEEDED` | The monthly limit is used up | Show `/me/quota` |
+| 429 | `QUOTA_EXCEEDED` | The monthly limit is used up. **Checked before anything else**, so it comes back immediately, even if the body is invalid. `details` = `{ field, limit, resetsOn }` | Show `message`, e.g. "Your limit for bin registrations is exhausted. You have used all 10 for this month. It resets on 1 November." |
 | 500 | `INTERNAL_SERVER_ERROR` | Server problem | "Something went wrong, try again" |
 
 ---
@@ -157,6 +160,7 @@ No login needed. Returns `200` with `{ ok, db: true, timestamp }`, or `503` if t
 ```json
 {
   "month": "2026-10",
+  "resetsOn": "2026-11-01",
   "limits":    { "registrations": 10, "missingReports": 15 },
   "used":      { "registrations": 2,  "missingReports": 3 },
   "remaining": { "registrations": 8,  "missingReports": 12 }
@@ -337,6 +341,40 @@ Paginated, newest users first.
 - `registrations` and `missingReports` count everything the user has ever done.
 - `activeBins` counts their bins that still exist.
 - A user only appears here after they've used the app once.
+
+### `GET /admin/settings`: Settings page
+```json
+{
+  "settings": [
+    {
+      "key": "quotaLimitRegistrations",
+      "label": "Bin registrations per user per month",
+      "value": 10, "default": 10, "min": 0, "max": 100,
+      "isDefault": true, "updatedAt": null, "updatedByEmail": null
+    },
+    { "key": "quotaLimitMissingReports", "label": "Missing reports per user per month", "value": 15, "default": 15, "min": 0, "max": 100, "isDefault": true },
+    { "key": "missingReportsThreshold", "label": "Missing reports needed to remove a bin", "value": 3, "default": 3, "min": 1, "max": 20, "isDefault": true }
+  ],
+  "history": [
+    { "id": "uuid", "key": "missingReportsThreshold", "oldValue": 3, "newValue": 2, "changedBy": "uuid", "changedByEmail": "admin@x.com", "changedAt": "…" }
+  ]
+}
+```
+
+- Build the form straight from `settings`: `label` for the field name, and `min`/`max` for the number input. `isDefault: false` means an admin has changed it.
+- `history` holds the last 20 changes, newest first.
+
+### `PUT /admin/settings`
+Send only the settings you want to change:
+```json
+{ "quotaLimitRegistrations": 20, "missingReportsThreshold": 4 }
+```
+
+- Values must be whole numbers within each setting's `min`–`max`. Anything else, an unknown key or an empty body returns `400`.
+- Returns `changed` (the keys whose value actually changed) plus the same data as `GET`. `message` is `"Settings updated"` or `"No changes"`.
+- **Takes effect immediately**, for everyone, with no restart.
+- **Lowering a limit mid-month:** users already at or above the new limit are blocked until the 1st. Worth showing a warning in the UI.
+- **Lowering the removal threshold:** bins already at or above it are removed on their next report, not straight away.
 
 ---
 

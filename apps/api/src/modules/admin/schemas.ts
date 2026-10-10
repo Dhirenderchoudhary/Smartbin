@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BIN_EVENT_TYPES } from "@smartbin/db";
+import { SETTING_DEFINITIONS, type SettingKey } from "../../common/settings.js";
 
 const pagination = {
   page: z.coerce.number().int().min(1).default(1),
@@ -46,6 +47,24 @@ export const usersQuery = z.object({
   ...pagination,
 });
 
+const settingValue = (key: SettingKey) => {
+  const { min, max } = SETTING_DEFINITIONS[key];
+  return z.number().int().min(min).max(max).optional();
+};
+
+// Partial update; ranges come from SETTING_DEFINITIONS so there is one source of truth
+export const settingsBody = z
+  .object({
+    quotaLimitRegistrations: settingValue("quotaLimitRegistrations"),
+    quotaLimitMissingReports: settingValue("quotaLimitMissingReports"),
+    missingReportsThreshold: settingValue("missingReportsThreshold"),
+  } satisfies Record<SettingKey, z.ZodTypeAny>)
+  .strict()
+  .refine((b) => Object.values(b).some((v) => v !== undefined), {
+    message: "Provide at least one setting to change",
+  });
+
 export type BinsListQuery = z.infer<typeof binsListQuery>;
+export type SettingsBody = z.infer<typeof settingsBody>;
 export type BinPatchBody = z.infer<typeof binPatchBody>;
 export type EventsQuery = z.infer<typeof eventsQuery>;

@@ -19,7 +19,16 @@ export function getDb() {
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-export { bins, users, userMonthlyUsage, binEvents, BIN_EVENT_TYPES, type BinEventType } from "./schema.js";
+export {
+  bins,
+  users,
+  userMonthlyUsage,
+  binEvents,
+  appSettings,
+  settingChanges,
+  BIN_EVENT_TYPES,
+  type BinEventType,
+} from "./schema.js";
 export { eq, sql, and, desc, asc, gt, ilike, count, getTableColumns } from "drizzle-orm";
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

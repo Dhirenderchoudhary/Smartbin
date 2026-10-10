@@ -1,6 +1,6 @@
 import { getDb, users, eq } from "@smartbin/db";
-import { config } from "../../common/config/config.js";
-import { currentMonth, getUsage } from "./quota.js";
+import { getUsage, quotaLimit } from "./quota.js";
+import { currentMonth, nextMonthStart } from "../../common/time.js";
 
 export interface DBUserRecord {
   id: string;
@@ -66,15 +66,17 @@ export async function syncUserByCognitoSub(
 }
 
 export async function getUserQuota(userId: string) {
-  const used = await getUsage(userId);
+  const [used, registrations, missingReports] = await Promise.all([
+    getUsage(userId),
+    quotaLimit("registrations"),
+    quotaLimit("missingReports"),
+  ]);
 
-  const limits = {
-    registrations: config.QUOTA_LIMIT_REGISTRATIONS,
-    missingReports: config.QUOTA_LIMIT_MISSING_REPORTS,
-  };
+  const limits = { registrations, missingReports };
 
   return {
     month: currentMonth(),
+    resetsOn: nextMonthStart(),
     limits,
     used,
     remaining: {
