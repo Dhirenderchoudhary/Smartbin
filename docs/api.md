@@ -20,6 +20,8 @@ For the mobile app (Expo) and the admin dashboard (React). All routes live under
 | GET | `/dustbins/nearby` | Bins near a location |
 | POST | `/dustbins` | Register a bin |
 | POST | `/dustbins/:id/report-missing` | Report a bin as missing |
+| POST | `/dustbins/:id/issues` | Report a problem: full, broken, dirty, other |
+| POST | `/dustbins/:id/issues/resolve` | Say a problem is sorted (emptied, fixed) |
 
 **Admins**
 
@@ -111,7 +113,7 @@ Every response uses one of two shapes.
 | 403 | `TOO_FAR` | Reporting from more than 20 m away from the bin | "Move closer to the bin" |
 | 404 | `NOT_FOUND` | The bin doesn't exist or was removed | Refresh the list |
 | 404 | `INVALID_IMAGE_KEY` | Nothing was uploaded with this key | Upload again |
-| 409 | `ALREADY_REPORTED` | This user already reported this bin as missing (allowed again after an admin resets its reports) | "You've already reported this bin" |
+| 409 | `ALREADY_REPORTED` | This user already reported this bin as missing (allowed again after an admin resets its reports), or already has an open report of the same problem | "You've already reported this bin" |
 | 409 | `DUPLICATE_NEARBY` | A bin already exists within 15 m. `details.existingBinId` says which one | Offer to show the existing bin |
 | 422 | `NOT_A_BIN` | The AI didn't see a dustbin in the photo | Ask for a clearer photo |
 | 429 | `QUOTA_EXCEEDED` | The monthly limit is used up. **Checked before anything else**, so it comes back immediately, even if the body is invalid. `details` = `{ field, limit, resetsOn }` | Show `message`, e.g. "Your limit for bin registrations is exhausted. You have used all 10 for this month. It resets on 1 November." |
@@ -132,6 +134,7 @@ Every response uses one of two shapes.
   "status": "ACTIVE",
   "missingReports": 0,
   "createdAt": "2026-10-10T03:52:30.321Z",
+  "issues": [ { "type": "FULL", "reports": 2, "lastReportedAt": "2026-10-10T14:03:09.657Z" } ],
   "distance": 42.7,
   "imageUrl": "https://smartbin-uploads-bucket.s3.ap-south-1.amazonaws.com/...&X-Amz-Signature=..."
 }
@@ -141,6 +144,7 @@ Every response uses one of two shapes.
 - `distance` is in metres from the location in the request.
 - `imageUrl` is a signed link that works for **1 hour**. Don't save it; fetch the list again to get a fresh one.
 - `status` is always `ACTIVE`.
+- `issues` lists the bin's open problems, one entry per type, most recent first. Empty when there are none.
 
 ---
 
@@ -226,6 +230,36 @@ Each user can report a bin **once**. A second report returns `409 ALREADY_REPORT
 
 Possible errors: `400`, `403 TOO_FAR`, `404 NOT_FOUND`, `409 ALREADY_REPORTED`, `429 QUOTA_EXCEEDED`.
 
+### `POST /dustbins/:id/issues`
+Report a problem with a bin that is still there.
+```json
+{ "type": "FULL", "note": "Overflowing onto the pavement", "lat": 28.6139, "lng": 77.2090 }
+```
+
+- `type` is `FULL`, `BROKEN`, `DIRTY` or `OTHER`.
+- `note` is optional, up to 200 characters, and **required** for `OTHER`.
+- `lat`/`lng` is the user's current GPS position; it must be within **50 m** of the bin.
+- A problem stays open until someone marks it sorted or an admin clears it. `FULL` also closes by itself after **24 hours**.
+- Each user can have one open report per problem type per bin. A second one returns `409 ALREADY_REPORTED`.
+- No monthly quota.
+
+Returns `201` with the bin's open problems:
+```json
+{ "id": "uuid", "issues": [ { "type": "FULL", "reports": 1, "lastReportedAt": "…" } ] }
+```
+
+Possible errors: `400`, `403 TOO_FAR`, `404 NOT_FOUND`, `409 ALREADY_REPORTED`.
+
+### `POST /dustbins/:id/issues/resolve`
+Someone at the bin says a problem is sorted (the bin was emptied, cleaned or fixed). Closes every open report of that type.
+```json
+{ "type": "FULL", "lat": 28.6139, "lng": 77.2090 }
+```
+
+Must be within 50 m of the bin. Returns `{ "id": "uuid", "resolved": 2, "issues": [ … ] }`; `resolved` is how many reports were closed (0 if none were open).
+
+Possible errors: `400`, `403 TOO_FAR`, `404 NOT_FOUND`.
+
 ---
 
 ## Endpoints for admins
@@ -280,17 +314,18 @@ Every active bin in one call, with no pages. Use it for the map view.
 ```
 
 ### `GET /admin/bins/:id`
-The same fields as an `/admin/bins` item, plus `timeline`: the bin's last 100 events, newest first (see **Event** below).
+The same fields as an `/admin/bins` item, plus `issues` (open problems, as in **Bin**) and `timeline`: the bin's last 100 events, newest first (see **Event** below).
 
 Returns `404` if the bin was removed. Its history is still available from `/admin/events?binId=<id>`.
 
 ### `PATCH /admin/bins/:id`
 Send any combination of these, at least one:
 ```json
-{ "name": "Gate 2 bin", "type": "WET", "resetReports": true }
+{ "name": "Gate 2 bin", "type": "WET", "resetReports": true, "resolveIssues": true }
 ```
 
 - `resetReports: true` sets missing reports back to 0, for a bin that turned out not to be missing.
+- `resolveIssues: true` closes all of the bin's open problems (full, broken and so on).
 - Any other field is rejected with `400`.
 - Returns the updated bin.
 - Every change is recorded in the bin's history.
@@ -329,6 +364,8 @@ The bin's history stays, ending with an `ADMIN_DELETE` event. Returns `404` if t
 | `REMOVED` | Removed after 3 reports | snapshot of the bin |
 | `ADMIN_EDIT` | An admin changed the name or type | `{ before, after }` |
 | `ADMIN_RESET_REPORTS` | An admin reset the reports to 0 | `{ previousMissingReports }` |
+| `ISSUE_REPORT` | A user reported a problem (position = where they stood) | `{ issue, note? }` |
+| `ISSUE_RESOLVED` | A user or admin marked problems sorted | `{ issues, reports }` |
 | `ADMIN_DELETE` | An admin deleted the bin | snapshot of the bin |
 
 Tip: `?type=REMOVED` gives a "removed bins" page.

@@ -64,6 +64,8 @@ export const BIN_EVENT_TYPES = [
   "ADMIN_EDIT",
   "ADMIN_DELETE",
   "ADMIN_RESET_REPORTS",
+  "ISSUE_REPORT",
+  "ISSUE_RESOLVED",
 ] as const;
 
 export type BinEventType = (typeof BIN_EVENT_TYPES)[number];
@@ -87,4 +89,26 @@ export const binEvents = pgTable(
     index("bin_events_type_created_at_idx").on(t.type, t.createdAt),
     index("bin_events_user_id_idx").on(t.userId),
   ]
+);
+
+export const BIN_ISSUE_TYPES = ["FULL", "BROKEN", "DIRTY", "OTHER"] as const;
+export type BinIssueType = (typeof BIN_ISSUE_TYPES)[number];
+
+// Problems people report with a bin that's still there (missing bins use missing_reports).
+// A report is open until someone at the bin, or an admin, marks it resolved; FULL also expires on its own.
+export const binIssues = pgTable(
+  "bin_issues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    binId: uuid("bin_id")
+      .notNull()
+      .references(() => bins.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type", { enum: BIN_ISSUE_TYPES }).notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: uuid("resolved_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [index("bin_issues_bin_id_idx").on(t.binId)]
 );

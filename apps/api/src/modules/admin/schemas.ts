@@ -31,10 +31,11 @@ export const binPatchBody = z
     name: z.string().trim().min(1).max(100).optional(),
     type: z.enum(["WET", "DRY", "BOTH"]).optional(),
     resetReports: z.literal(true).optional(),
+    resolveIssues: z.literal(true).optional(),
   })
   .strict()
-  .refine((b) => b.name !== undefined || b.type !== undefined || b.resetReports, {
-    message: "Provide at least one of name, type or resetReports",
+  .refine((b) => b.name !== undefined || b.type !== undefined || b.resetReports || b.resolveIssues, {
+    message: "Provide at least one of name, type, resetReports or resolveIssues",
   });
 
 export const eventsQuery = z.object({

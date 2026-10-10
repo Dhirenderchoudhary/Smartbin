@@ -33,6 +33,8 @@ apiRouter.get("/dustbins/upload-url", authenticateToken, DustbinController.getPr
 apiRouter.get("/dustbins/nearby", authenticateToken, DustbinController.getNearby);
 apiRouter.post("/dustbins", authenticateToken, requireQuota("registrations"), DustbinController.create);
 apiRouter.post("/dustbins/:id/report-missing", authenticateToken, requireQuota("missingReports"), DustbinController.reportMissing);
+apiRouter.post("/dustbins/:id/issues", authenticateToken, DustbinController.reportIssue);
+apiRouter.post("/dustbins/:id/issues/resolve", authenticateToken, DustbinController.resolveIssue);
 
 // --- Admin Endpoints ---
 const adminOnly = [authenticateToken, requireAdmin];

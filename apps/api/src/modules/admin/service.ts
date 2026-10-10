@@ -17,6 +17,7 @@ import { ApiError } from "../../common/http/ApiError.js";
 import { deleteImageObject, getImageViewUrl } from "../../common/storage/s3.js";
 import { logBinEvent } from "../../common/events.js";
 import { APP_TIMEZONE } from "../../common/time.js";
+import { openIssuesOf, resolveBinIssues } from "../dustbin/service.js";
 import type { BinPatchBody, BinsListQuery, EventsQuery } from "./schemas.js";
 
 // "Today" and daily buckets follow Indian time, not UTC
@@ -187,7 +188,7 @@ export async function getBinDetails(binId: string) {
     .orderBy(desc(binEvents.createdAt))
     .limit(100);
 
-  return { ...(await withImageUrl(bin)), timeline };
+  return { ...(await withImageUrl(bin)), issues: await openIssuesOf(db, binId), timeline };
 }
 
 export async function updateBin(adminId: string, binId: string, body: BinPatchBody) {
@@ -204,7 +205,10 @@ export async function updateBin(adminId: string, binId: string, body: BinPatchBo
     if (body.type !== undefined) changes.type = body.type;
     if (body.resetReports) changes.missingReports = 0;
 
-    const [updated] = await tx.update(bins).set(changes).where(eq(bins.id, binId)).returning();
+    const [updated] = Object.keys(changes).length
+      ? await tx.update(bins).set(changes).where(eq(bins.id, binId)).returning()
+      : [before];
+    if (body.resolveIssues) await resolveBinIssues(adminId, binId, {}, tx);
 
     if (body.name !== undefined || body.type !== undefined) {
       await logBinEvent(tx, {

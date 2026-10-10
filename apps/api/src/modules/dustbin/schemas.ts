@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BIN_ISSUE_TYPES } from "@smartbin/db";
 import { ALLOWED_IMAGE_TYPES, type AllowedImageType } from "../../common/storage/s3.js";
 
 const queryLat = z.coerce.number().min(-90).max(90);
@@ -29,6 +30,21 @@ export const reportMissingParams = z.object({
 });
 
 export const reportMissingBody = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
+export const reportIssueBody = z
+  .object({
+    type: z.enum(BIN_ISSUE_TYPES),
+    note: z.string().trim().max(200).optional(),
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+  })
+  .refine((b) => b.type !== "OTHER" || b.note, { message: "Describe the problem", path: ["note"] });
+
+export const resolveIssueBody = z.object({
+  type: z.enum(BIN_ISSUE_TYPES),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
 });
