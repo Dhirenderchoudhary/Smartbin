@@ -3,9 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { AppBadges } from "@/components/landing/AppBadges";
 import { BrowserFrame, PhoneFrame, Screen } from "@/components/landing/Frames";
-import { RuleDiagram, StreetBin } from "@/components/landing/illustrations";
+import { StreetBin } from "@/components/landing/illustrations";
 import { LiveMap } from "@/components/landing/LiveMap";
 import { Magnetic, MotionRoot, Reveal, Tilt } from "@/components/landing/Motion";
+import { RuleCards } from "@/components/landing/RuleCards";
 import { ParallaxPhoto, ScrollStory, type StoryStep } from "@/components/landing/ScrollStory";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { Button } from "@/components/ui/button";
@@ -86,12 +87,6 @@ const addSteps = [
   { title: "Pin it", body: "Move the map until the pin sits on the bin. SmartBin warns you if it's already on the map.", screen: "add-where" as const, alt: "Placing the pin on a new bin" },
   { title: "Take a photo", body: "Snap the bin and choose wet, dry or both. A quick check confirms there's a dustbin in the picture.", screen: "add-details" as const, alt: "Adding a photo and the waste type" },
   { title: "It's on the map", body: "Anyone nearby can now find it, and see what it takes before they walk over.", screen: "map" as const, alt: "The map with the new bin added" },
-];
-
-const rules = [
-  { diagram: "spacing" as const, title: "One bin per spot", body: "If a bin is already on the map within 15 metres, a second one can't be added on top of it." },
-  { diagram: "nearby" as const, title: "Report from the spot", body: "To report a bin as missing, you have to be standing within 20 metres of where it should be." },
-  { diagram: "reports" as const, title: "Three reports and it's gone", body: "When three different people report a bin missing, it comes off the map. If it's still there, anyone can add it back." },
 ];
 
 const history = [
@@ -311,16 +306,8 @@ export default function Home() {
             <Reveal>
               <h2 className={`${display} max-w-[16ch] text-5xl sm:text-6xl`}>Three rules keep the map honest</h2>
             </Reveal>
-            <div className="mt-12 grid gap-12 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10">
-              {rules.map((rule) => (
-                <div key={rule.title} className="flex flex-col gap-5">
-                  <RuleDiagram rule={rule.diagram} />
-                  <div className="flex flex-col gap-1.5">
-                    <h3 className="text-xl font-bold">{rule.title}</h3>
-                    <p className="max-w-[36ch] leading-relaxed text-muted-foreground">{rule.body}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="mt-12">
+              <RuleCards />
             </div>
           </section>
 

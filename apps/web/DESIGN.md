@@ -127,7 +127,8 @@ It's built from `components/landing/`:
 | `ScrollStory.tsx` | A sticky phone whose screen changes with the step in the middle of the window (`lg+`); on phones each step has its own screen. Also `ParallaxPhoto` |
 | `Motion.tsx` | `MotionRoot` (`LazyMotion` + `MotionConfig reducedMotion="user"`), `Reveal` (headings rise in once), `Tilt` (phones lean towards the cursor), `Magnetic` (main buttons lean towards the cursor), `useFinePointer` |
 | `AppBadges.tsx` | Google Play / App Store buttons from `SITE.appLinks` in `lib/site.ts`; an empty link shows "Coming soon" and goes nowhere |
-| `illustrations.tsx` | `Streets`, `Pin`, `StreetBin`, `RuleDiagram`: the SVG drawings |
+| `RuleCards.tsx` | The three rules: a big number each (15 m, 20 m, 3) and a diagram that acts the rule out when the card scrolls into view; hover replays it. Without JavaScript the end state shows |
+| `illustrations.tsx` | `Streets`, `Pin`, `StreetBin`: the SVG drawings |
 
 **Motion rules:**
 - Motion uses `motion` (Framer Motion) and appears only where it explains something: the route to the nearest bin, the app's screens following the story, and the phones turning towards you.
