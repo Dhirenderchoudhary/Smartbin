@@ -37,7 +37,7 @@ Built for the **WeMakeDevs × AWS Environmental Hacks** (Waste & Energy track, O
 - **Cleaning queue:** bins reported full, broken or dirty, with one-click "sorted".
 - Bin table with filters, the full history of each bin, users, an activity feed, and **settings** (limits and thresholds) that change without a redeploy.
 
-**Demo mode:** with `DEMO_MODE=true`, opening the map anywhere in India where there are no bins creates a dozen clearly labelled **"Demo"** bins around that spot (with photos and some history), so the app and the dashboard are never empty. They are flagged in the database, ignored by real registrations, and removed with one command.
+**Demo mode:** with `DEMO_MODE=true`, opening the map anywhere in India where there are few bins nearby creates a dozen clearly labelled **"Demo"** bins around that spot (with photos and some history), so the app and the dashboard are never empty. They are flagged in the database, ignored by real registrations, and removed with one command.
 
 **For judges: `/evals`**, a public page showing how well the AI tells real bins from fakes, with every test photo, the model's verdict and its reason, a live re-run, and a box to try your own photo.
 

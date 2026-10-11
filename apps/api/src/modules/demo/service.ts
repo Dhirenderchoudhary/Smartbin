@@ -16,13 +16,14 @@ import { demoPhotoKey, storeImageObject } from "../../common/storage/s3.js";
 import { loadCases, readCaseImage } from "../evals/dataset.js";
 import { distanceSql } from "../dustbin/service.js";
 
-// DEMO_MODE: when someone opens the map where there are no bins, create a dozen labelled demo bins
+// DEMO_MODE: when someone opens the map where there are few bins, create a dozen labelled demo bins
 // around that spot, with a believable history, so the map and the admin dashboard have something to show.
 // They are ordinary rows flagged is_demo and created by the demo user below, so
 // `npm run seed:demo -- --reset` removes them again. Real registrations ignore them.
 
 const DEMO_EMAIL = "demo-bins@seed.smartbin.local";
-const NO_BINS_WITHIN_M = 2500; // the web app asks for 2 km; leave some margin
+const NEARBY_M = 2500; // the web app asks for 2 km; leave some margin
+const FEW_BINS = 6; // fewer than this nearby (real or demo) and the area is topped up with demo bins
 const BINS_PER_AREA = 12;
 const SPREAD_M = 900; // bins land within this distance of the spot
 const MIN_APART_M = 30;
@@ -65,13 +66,13 @@ function ensurePhotos(): Promise<number> {
   return photoCount;
 }
 
-async function hasBinWithin(executor: Transaction | ReturnType<typeof getDb>, lat: number, lng: number, meters: number) {
-  const [row] = await executor
-    .select({ id: bins.id })
+// Active bins within `meters`, stopping at `limit` (we only need to know if there are enough)
+async function binsWithin(executor: Transaction | ReturnType<typeof getDb>, lat: number, lng: number, meters: number, limit: number) {
+  return executor
+    .select({ lat: bins.latitude, lng: bins.longitude })
     .from(bins)
     .where(and(eq(bins.status, "ACTIVE"), sql`${distanceSql(lat, lng)} <= ${meters}`))
-    .limit(1);
-  return !!row;
+    .limit(limit);
 }
 
 async function demoUserId(tx: Transaction): Promise<string> {
@@ -86,25 +87,26 @@ export async function ensureDemoBinsAround(lat: number, lng: number): Promise<bo
   if (lat < INDIA.latMin || lat > INDIA.latMax || lng < INDIA.lngMin || lng > INDIA.lngMax) return false;
 
   const db = getDb();
-  if (await hasBinWithin(db, lat, lng, NO_BINS_WITHIN_M)) return false; // the common case: one cheap query
+  if ((await binsWithin(db, lat, lng, NEARBY_M, FEW_BINS)).length >= FEW_BINS) return false; // the common case: one cheap query
 
   const photos = await ensurePhotos();
 
   return db.transaction(async (tx) => {
     // One area at a time, and check again once we hold the lock (another request may have just made it)
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('demo:area'))`);
-    if (await hasBinWithin(tx, lat, lng, NO_BINS_WITHIN_M)) return false;
+    const existing = await binsWithin(tx, lat, lng, NEARBY_M, 200);
+    if (existing.length >= FEW_BINS) return false;
     const [{ total }] = await tx.select({ total: count() }).from(bins).where(eq(bins.isDemo, true)) as [{ total: number }];
     if (total >= MAX_DEMO_BINS) return false;
 
     const creator = await demoUserId(tx);
     const now = Date.now();
 
-    // Spots at least MIN_APART_M from each other
+    // Spots at least MIN_APART_M from each other and from any bin already there
     const spots: { lat: number; lng: number }[] = [];
     for (let attempt = 0; attempt < 300 && spots.length < BINS_PER_AREA; attempt++) {
       const p = around(lat, lng, SPREAD_M);
-      if (spots.every((s) => metres(s, p) >= MIN_APART_M)) spots.push(p);
+      if (spots.every((s) => metres(s, p) >= MIN_APART_M) && existing.every((e) => metres(e, p) >= MIN_APART_M)) spots.push(p);
     }
 
     const rows = spots.map((p, i) => ({

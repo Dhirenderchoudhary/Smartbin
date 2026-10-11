@@ -218,7 +218,7 @@ Content-Type: image/jpeg      ← must match the contentType from step 1
 
 ### Demo mode
 
-With `DEMO_MODE=true` on the server, a `nearby` request **with a `radius`** from a spot in India that has **no bin within 2.5 km** creates 12 demo bins around it (within about 900 m, with photos and a few weeks of activity), then returns them. The same spot, or one nearby, reuses them. Requests outside India, or without a `radius`, create nothing.
+With `DEMO_MODE=true` on the server, a `nearby` request **with a `radius`** from a spot in India that has **fewer than 6 bins within 2.5 km** creates 12 demo bins around it (keeping 30 m away from any real bin) (within about 900 m, with photos and a few weeks of activity), then returns them. The same spot, or one nearby, reuses them. Requests outside India, or without a `radius`, create nothing.
 
 Demo bins are ordinary rows with `isDemo: true`, so they also show in the admin dashboard. They never block a real registration (the 15 m duplicate rule ignores them), and `npm run seed:demo -- --reset` removes them all. They share a few photos that are never deleted. Turn it off with `DEMO_MODE=false`.
 
