@@ -173,7 +173,10 @@ function SelectedBin({
         <img src={bin.imageUrl} alt={`Photo of ${bin.name}`} className="size-24 shrink-0 rounded-xl bg-muted object-cover" />
         <div className="flex min-w-0 flex-col justify-center gap-2">
           <h2 className="truncate text-xl leading-tight">{bin.name}</h2>
-          <TypeBadges type={bin.type} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <TypeBadges type={bin.type} />
+            {bin.isDemo && <Badge variant="outline">Demo data</Badge>}
+          </div>
           {bin.missingReports > 0 && (
             <p className="text-sm text-muted-foreground">
               {bin.missingReports === 1 ? "1 person reported it missing" : `${bin.missingReports} people reported it missing`}

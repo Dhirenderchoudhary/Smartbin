@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { getNearbyBins, createBin, reportMissingBin, reportBinIssue, resolveBinIssues, recordInteraction, logSearch } from "./service.js";
 import { generateUploadUrl } from "../../common/storage/s3.js";
 import { ApiResponse } from "../../common/http/ApiResponse.js";
+import { ensureDemoBinsAround } from "../demo/service.js";
 import {
   createBody,
   interactionBody,
@@ -26,6 +27,8 @@ export async function getPresignedUrl(req: Request, res: Response, next: NextFun
 export async function getNearby(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { lat, lng, radius, log } = nearbyQuery.parse(req.query);
+    // DEMO_MODE: a map search with no bins around creates labelled demo bins there (a failure must not fail the search)
+    if (radius !== undefined) await ensureDemoBinsAround(lat, lng).catch((err) => console.warn("demo bins failed", err));
     const bins = await getNearbyBins(lat, lng, radius);
     if (log === "1") {
       // Analytics only: a failed log must not fail the search

@@ -10,6 +10,8 @@ export const bins = pgTable("bins", {
   status: text("status", { enum: ["ACTIVE", "MISSING"] }).notNull().default("ACTIVE"),
   missingReports: integer("missing_reports").notNull().default(0),
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  // Demo bins are created on demand around people who open the map where no bins exist (DEMO_MODE)
+  isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

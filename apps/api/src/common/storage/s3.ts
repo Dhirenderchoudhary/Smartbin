@@ -3,7 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { config } from "../config/config.js";
 import { ApiError } from "../http/ApiError.js";
 import { v4 as uuidv4 } from "uuid";
-import { deleteLocalImage, localImageUrl, readLocalImage } from "./local.js";
+import { deleteLocalImage, localImageUrl, readLocalImage, writeLocalImage } from "./local.js";
 
 const LOCAL = config.STORAGE_MODE === "local";
 
@@ -100,7 +100,22 @@ export async function getImageViewUrl(key: string): Promise<string> {
   return getSignedUrl(s3Client, command, { expiresIn: 3600 });
 }
 
+// Demo bins share a few photos owned by this reserved "nobody" id (no real user can claim it).
+// They are never deleted, so removing one demo bin can't break the others' pictures.
+export const DEMO_PHOTO_OWNER = "00000000-0000-0000-0000-000000000000";
+export const demoPhotoKey = (n: number) => `dustbins/${DEMO_PHOTO_OWNER}/00000000-0000-0000-0000-${String(n).padStart(12, "0")}.jpg`;
+
+export async function storeImageObject(key: string, bytes: Uint8Array, contentType: AllowedImageType): Promise<void> {
+  if (LOCAL) {
+    return writeLocalImage(key, bytes);
+  }
+  await s3Client.send(new PutObjectCommand({ Bucket: config.S3_BUCKET_NAME, Key: key, Body: bytes, ContentType: contentType }));
+}
+
 export async function deleteImageObject(key: string): Promise<void> {
+  if (key.startsWith(`dustbins/${DEMO_PHOTO_OWNER}/`)) {
+    return;
+  }
   if (LOCAL) {
     return deleteLocalImage(key);
   }

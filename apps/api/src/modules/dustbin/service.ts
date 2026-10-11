@@ -46,7 +46,7 @@ export function issuesSql(binId: unknown = sql`"bins"."id"`) {
 }
 
 // Haversine distance in meters from (lat, lng) to each bin row
-function distanceSql(lat: number, lng: number) {
+export function distanceSql(lat: number, lng: number) {
   return sql`6371000 * acos(least(1.0,
     cos(radians(${lat})) * cos(radians(${bins.latitude})) * cos(radians(${bins.longitude}) - radians(${lng})) +
     sin(radians(${lat})) * sin(radians(${bins.latitude}))
@@ -74,6 +74,7 @@ export async function getNearbyBins(lat: number, lng: number, radiusMeters?: num
       status: bins.status,
       missingReports: bins.missingReports,
       createdAt: bins.createdAt,
+      isDemo: bins.isDemo,
       issues: issuesSql(),
       distance: distance.mapWith(Number)
     })
@@ -98,7 +99,8 @@ async function findBinWithin(executor: Transaction | ReturnType<typeof getDb>, l
   const [existing] = await executor
     .select({ id: bins.id })
     .from(bins)
-    .where(sql`${distanceSql(lat, lng)} <= ${meters}`)
+    // Demo bins are placeholders: they never block a real person from registering a real bin
+    .where(and(eq(bins.isDemo, false), sql`${distanceSql(lat, lng)} <= ${meters}`))
     .limit(1);
   return existing;
 }

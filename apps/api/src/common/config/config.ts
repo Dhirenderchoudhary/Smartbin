@@ -37,6 +37,9 @@ const envSchema = z.object({
   QUOTA_LIMIT_REGISTRATIONS: z.coerce.number().int().default(10),
   QUOTA_LIMIT_MISSING_REPORTS: z.coerce.number().int().default(15),
 
+  // "true": opening the map where there are no bins creates labelled demo bins around that spot
+  DEMO_MODE: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+
   // A bin is removed from the DB once it reaches this many missing reports
   MISSING_REPORTS_THRESHOLD: z.coerce.number().int().min(1).default(3),
 });

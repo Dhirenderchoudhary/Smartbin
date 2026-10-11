@@ -142,6 +142,7 @@ Every response uses one of two shapes.
   "status": "ACTIVE",
   "missingReports": 0,
   "createdAt": "2026-10-10T03:52:30.321Z",
+  "isDemo": false,
   "issues": [ { "type": "FULL", "reports": 2, "lastReportedAt": "2026-10-10T14:03:09.657Z", "note": null } ],
   "distance": 42.7,
   "imageUrl": "https://smartbin-uploads-bucket.s3.ap-south-1.amazonaws.com/...&X-Amz-Signature=..."
@@ -152,6 +153,7 @@ Every response uses one of two shapes.
 - `distance` is in metres from the location in the request.
 - `imageUrl` is a signed link that works for **1 hour**. Don't save it; fetch the list again to get a fresh one.
 - `status` is always `ACTIVE`.
+- `isDemo` is `true` for placeholder bins (see **Demo mode** below). Show a "Demo data" badge; their names also start with "Demo · ".
 - `issues` lists the bin's open problems, one entry per type, most recent first, with the latest `note` people wrote (or `null`). Empty when there are none.
 
 ---
@@ -213,6 +215,12 @@ Content-Type: image/jpeg      ← must match the contentType from step 1
   - `409 DUPLICATE_NEARBY` (with `existingBinId`)
   - `422 NOT_A_BIN`: the photo is also deleted from S3
   - `429 QUOTA_EXCEEDED`
+
+### Demo mode
+
+With `DEMO_MODE=true` on the server, a `nearby` request **with a `radius`** from a spot in India that has **no bin within 2.5 km** creates 12 demo bins around it (within about 900 m, with photos and a few weeks of activity), then returns them. The same spot, or one nearby, reuses them. Requests outside India, or without a `radius`, create nothing.
+
+Demo bins are ordinary rows with `isDemo: true`, so they also show in the admin dashboard. They never block a real registration (the 15 m duplicate rule ignores them), and `npm run seed:demo -- --reset` removes them all. They share a few photos that are never deleted. Turn it off with `DEMO_MODE=false`.
 
 ### `GET /dustbins/nearby?lat=28.61&lng=77.20&radius=500`
 

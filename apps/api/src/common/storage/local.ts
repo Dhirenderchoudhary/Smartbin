@@ -38,6 +38,12 @@ export async function readLocalImage(key: string): Promise<{ bytes: Uint8Array; 
   }
 }
 
+export async function writeLocalImage(key: string, bytes: Uint8Array): Promise<void> {
+  const target = filePath(key);
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, bytes);
+}
+
 export async function deleteLocalImage(key: string): Promise<void> {
   await rm(filePath(key), { force: true });
 }

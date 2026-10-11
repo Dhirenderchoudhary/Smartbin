@@ -10,6 +10,8 @@ export interface Bin {
   longitude: number;
   missingReports: number;
   createdAt: string;
+  /** Placeholder bin created for the demo around a spot with no bins; shown with a "Demo data" badge */
+  isDemo?: boolean;
   distance: number;
   imageUrl: string;
   /** Open problems, one per type, most recent first */
