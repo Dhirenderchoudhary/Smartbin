@@ -43,40 +43,50 @@ Built for the **WeMakeDevs × AWS Environmental Hacks** (Waste & Energy track, O
 
 ## Architecture
 
+Users sign in with Cognito, load maps from Amazon Location, and talk to one HTTPS address (API Gateway), which sends API calls and pages to the server. Only the API touches the database, the photos, the AI and the secrets.
+
 ```mermaid
 flowchart LR
-    subgraph Clients
-        WEB["Web app<br/>Next.js + React"]
-        APP["Mobile app<br/>Expo"]
+    U["📱 Users<br/>web app · Expo app"]
+
+    subgraph front["AWS front door"]
+        COG["Amazon Cognito<br/>sign-in"]
+        LOC["Amazon Location<br/>maps · routes"]
+        GW["Amazon API Gateway<br/>HTTPS"]
     end
 
-    COG["Amazon Cognito<br/>sign-up, sign-in,<br/>ADMIN group"]
-    LOC["Amazon Location Service<br/>map tiles + walking routes"]
-    APIGW["Amazon API Gateway<br/>HTTPS, rate limit"]
-
-    subgraph VPC["Amazon VPC · ap-south-1 (Mumbai)"]
-        subgraph EC2["Amazon EC2 · pm2"]
-            NEXT["Next.js web :3001"]
-            API["Express API :3000"]
-        end
-        RDS[("Amazon RDS<br/>PostgreSQL 16")]
+    subgraph server["Amazon EC2"]
+        API["Express<br/>API"]
+        WEB["Next.js<br/>web app"]
     end
 
-    S3[("Amazon S3<br/>bin photos, private")]
-    SSM["AWS Systems Manager<br/>Parameter Store + deploys"]
-    AI["AI photo check<br/>OpenAI gpt-4.1-mini<br/>(Amazon Bedrock ready)"]
+    subgraph back["Data and AI"]
+        RDS[("Amazon RDS<br/>PostgreSQL")]
+        S3[("Amazon S3<br/>bin photos<br/>phones upload here directly")]
+        AI["AI photo check<br/>OpenAI · Bedrock ready"]
+        SSM["Systems Manager<br/>secrets"]
+    end
 
-    WEB & APP -- "sign in (Amplify)" --> COG
-    WEB & APP -- "tiles, routes (referrer-locked key)" --> LOC
-    WEB & APP -- "HTTPS" --> APIGW
-    APIGW -- "/v1/*" --> API
-    APIGW -- "/*" --> NEXT
-    WEB & APP -- "photo upload (presigned PUT)" --> S3
-    API -- "verify JWT" --> COG
+    U --> COG
+    U --> LOC
+    U --> GW
+    GW --> WEB
+    GW --> API
     API --> RDS
-    API -- "read photo, signed view links" --> S3
+    API --> S3
     API --> AI
-    API -- "secrets via IAM role" --> SSM
+    API --> SSM
+
+    linkStyle default stroke:#8b949e,stroke-width:1.5px
+
+    classDef aws fill:#ff9900,stroke:#cc7a00,color:#111
+    classDef other fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    classDef users fill:#22c55e,stroke:#15803d,color:#111
+    classDef group fill:#161b22,stroke:#444c56,color:#c9d1d9
+    class COG,GW,LOC,WEB,API,RDS,S3,SSM aws
+    class AI other
+    class U users
+    class front,server,back group
 ```
 
 **Key design choices**
@@ -234,5 +244,6 @@ cd ../web && npm install && npm run dev       # web on http://localhost:3001 (re
 | **Satya Sootar** | Web app and design: landing page, the map app (find, add and report bins, walking directions), the admin dashboard (overview, demand map, cleaning queue, bins, activity, users, settings), problem reports, usage and demand analytics, demo data |
 | **Karan Kumar** | API and AWS: bin rules and quotas, Cognito sign-in, S3 photo pipeline, AI photo check, fake-bin defences, AI evaluation and the `/evals` page, admin API, AWS deployment (EC2, RDS, API Gateway, Location, Parameter Store) |
 | **Dhirender Choudhary** | Project setup: the GitHub repository and the Next.js and Drizzle foundation |
+| **Sudo** | Reviewed the code and helped produce the demo video |
 
 Demo photos on `/evals`: Wikimedia Commons contributors, credited in [apps/web/public/evals/CREDITS.md](apps/web/public/evals/CREDITS.md).
