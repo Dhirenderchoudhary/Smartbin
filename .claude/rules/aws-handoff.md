@@ -8,7 +8,7 @@ The plan, architecture and owners are in `plan-web-repo.md` (AWS account, Cognit
 
 | Area | Today (local) | On AWS | Swap point | Status |
 |---|---|---|---|---|
-| **Sign-in (web)** | `NEXT_PUBLIC_AUTH_MODE=dev`: the token is the email, any password works; `TestLogin` buttons | Amazon Cognito user pool with `USER` / `ADMIN` groups, via `aws-amplify` v6 | `apps/web/src/lib/auth.ts`: `signIn`, `signUp`, `signOut`, `getToken` (the comment at the top has the Amplify calls) | Not wired. Sign-up needs a confirmation-code step on `/signup` |
+| **Sign-in (web)** | `NEXT_PUBLIC_AUTH_MODE=dev`: the token is the email, any password works; `TestLogin` buttons | Amazon Cognito user pool with `USER` / `ADMIN` groups, via `aws-amplify` v6 | `apps/web/src/lib/auth.ts`: `signIn`, `signUp`, `confirmSignUp`, `resendCode`, `signOut`, `getToken` | Built. Sign-up has the emailed-code step in `AuthForm`. Set the pool and client IDs and `NEXT_PUBLIC_AUTH_MODE=cognito` |
 | **Sign-in (API)** | `AUTH_MODE=dev`: bearer token = email; `DEV_ADMIN_EMAILS` are admins | Cognito JWT check, admin = `ADMIN` group | `apps/api/src/common/auth/` (`verifier.ts`, `middleware.ts`, `cognito.ts`) | Built; needs the pool ID and client IDs in env |
 | **Map tiles** | OpenFreeMap (positron / dark) | Amazon Location Maps, `Monochrome` style, `political-view=IND` | `apps/web/src/lib/mapStyle.ts`, `components/map/createMap.ts` | Built; set `NEXT_PUBLIC_AWS_MAP_KEY`. Falls back to OpenFreeMap on its own if Amazon fails or takes over 8 s |
 | **Walking routes** | FOSSGIS OSRM (`routing.openstreetmap.de`, fair use), then a straight line | Amazon Location Routes (pedestrian) | `apps/web/src/lib/routes.ts` (`walkingRoute`) | Built; uses the same key if it allows geo-routes |
@@ -31,13 +31,14 @@ The API refuses to start in production (`NODE_ENV=production`) with `AUTH_MODE=d
 ## Env vars that switch things over
 
 ```sh
-# apps/web/.env
+# .env at the repo root (npm run dev in apps/web loads it); see .env.example
 NEXT_PUBLIC_AUTH_MODE=cognito
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=ap-south-1_...
+NEXT_PUBLIC_COGNITO_CLIENT_ID=...
 NEXT_PUBLIC_API_URL=https://<api-gateway-url>/v1
 NEXT_PUBLIC_SITE_URL=https://<web-domain>
 NEXT_PUBLIC_AWS_MAP_KEY=v1.public....        # Amazon Location API key (maps + routes)
 NEXT_PUBLIC_AWS_REGION=ap-south-1
-# Cognito pool / client IDs: add when lib/auth.ts is wired
 
 # apps/api/.env
 AUTH_MODE=cognito

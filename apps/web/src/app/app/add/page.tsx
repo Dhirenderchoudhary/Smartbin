@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppTopBar } from "@/components/AppTopBar";
+import { CameraCapture } from "@/components/CameraCapture";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
@@ -34,19 +35,6 @@ const LocationPicker = dynamic(() => import("@/components/map/LocationPicker"), 
 
 const floating = "bg-card text-foreground shadow-float hover:bg-muted";
 
-// The API asks for photos of about 1280 px; this also keeps uploads well under 5 MB
-async function shrinkPhoto(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Couldn't read that photo. Try another."))), "image/jpeg", 0.85)
-  );
-}
-
 type Problem = { text: string; title?: string; existingBinId?: string };
 
 export default function AddBinPage() {
@@ -62,8 +50,8 @@ export default function AddBinPage() {
   const [nearby, setNearby] = useState<Bin[]>([]);
   const fetchedAround = useRef<LatLng | null>(null);
 
-  // Step 2: details
-  const fileInput = useRef<HTMLInputElement>(null);
+  // Step 2: details. Photos come only from the live camera, never from the gallery or files.
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
   const [type, setType] = useState<BinType | null>(null);
   const [sending, setSending] = useState<string | null>(null);
@@ -98,18 +86,13 @@ export default function AddBinPage() {
   const duplicate = spot ? nearby.find((b) => metresBetween(spot, b) < DUPLICATE_RADIUS_M) : undefined;
   const fromYou = gps && spot ? metresBetween(gps, spot) : null;
 
-  async function choosePhoto(file: File | undefined) {
-    if (!file) return;
+  function acceptPhoto(blob: Blob) {
     setProblem(null);
-    try {
-      const blob = await shrinkPhoto(file);
-      setPhoto((old) => {
-        if (old) URL.revokeObjectURL(old.url);
-        return { blob, url: URL.createObjectURL(blob) };
-      });
-    } catch (err) {
-      setProblem({ text: err instanceof Error ? err.message : "Couldn't read that photo. Try another." });
-    }
+    setCameraOpen(false);
+    setPhoto((old) => {
+      if (old) URL.revokeObjectURL(old.url);
+      return { blob, url: URL.createObjectURL(blob) };
+    });
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -239,18 +222,10 @@ export default function AddBinPage() {
 
             <Field>
               <FieldLabel htmlFor="photo">Photo of the bin</FieldLabel>
-              <input
-                ref={fileInput}
-                id="photo"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="sr-only"
-                onChange={(e) => choosePhoto(e.target.files?.[0])}
-              />
               <button
+                id="photo"
                 type="button"
-                onClick={() => fileInput.current?.click()}
+                onClick={() => setCameraOpen(true)}
                 className="relative grid aspect-4/3 w-full place-items-center overflow-hidden rounded-2xl bg-muted text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {photo ? (
@@ -265,10 +240,11 @@ export default function AddBinPage() {
                   <span className="flex flex-col items-center gap-2">
                     <CameraIcon className="size-8" aria-hidden="true" />
                     <span className="font-medium text-foreground">Take a photo</span>
-                    <span className="text-sm">Get the whole bin in the picture</span>
+                    <span className="text-sm">Opens your camera. Get the whole bin in the picture</span>
                   </span>
                 )}
               </button>
+              <FieldDescription>Take it now, standing at the bin. Photos from your gallery can&apos;t be used.</FieldDescription>
             </Field>
 
             <FieldSet>
@@ -321,6 +297,8 @@ export default function AddBinPage() {
           </FieldGroup>
         </form>
       </main>
+
+      {cameraOpen && <CameraCapture onCapture={acceptPhoto} onClose={() => setCameraOpen(false)} />}
     </>
   );
 }
