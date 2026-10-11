@@ -125,8 +125,15 @@ export async function createBin(userId: string, data: CreateBinInput) {
     throw duplicateNearby(nearby.id);
   }
 
-  // 3. Verify with AI model
-  const image = await getImageObject(data.imageKey);
+  // 3. The file must really be a photo (checked from its bytes), then the AI must see a dustbin.
+  //    Rejected uploads are deleted so they can't be retried or pile up in storage.
+  let image;
+  try {
+    image = await getImageObject(data.imageKey);
+  } catch (err) {
+    if (err instanceof ApiError && err.code === "UNSUPPORTED_MEDIA") await deleteImageObject(data.imageKey);
+    throw err;
+  }
   const isDustbin = await verifyDustbinImage(image.bytes, image.contentType);
   if (!isDustbin) {
     await deleteImageObject(data.imageKey);

@@ -4,14 +4,21 @@
 //   npm run seed:demo            add demo data (runs --reset first, so it can be re-run)
 //   npm run seed:demo -- --reset remove demo data only
 //
-// Local development only: refuses to run with NODE_ENV=production. Photos are copied from an
-// existing upload in .local-uploads (STORAGE_MODE=local); with S3 the demo photos won't load.
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+// Refuses to run with NODE_ENV=production unless you add --allow-production (for a demo deployment).
+// Each demo bin gets one of the clear dustbin photos from the AI evaluation set (apps/web/public/evals):
+// uploaded to S3, or written to .local-uploads with STORAGE_MODE=local. --reset deletes them again.
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { binEvents, binInteractions, binIssues, bins, getDb, inArray, searchLogs, sql, users } from "@smartbin/db";
+import { config } from "../src/common/config/config.js";
+import { deleteImageObject } from "../src/common/storage/s3.js";
+import { loadCases, readCaseImage } from "../src/modules/evals/dataset.js";
 
-if (process.env.NODE_ENV === "production") throw new Error("seed-demo is for local development only");
+if (process.env.NODE_ENV === "production" && !process.argv.includes("--allow-production")) {
+  throw new Error("seed-demo refuses to run in production; add --allow-production if this is a demo deployment");
+}
 
 const SEED_DOMAIN = "seed.smartbin.local";
 // Seeded search logs carry this sub-millisecond mark, so --reset can find them.
@@ -74,6 +81,8 @@ async function reset() {
   if (userIds.length) {
     const seedBins = await db.select({ id: bins.id }).from(bins).where(inArray(bins.createdBy, userIds));
     const binIds = seedBins.map((b) => b.id);
+    const photos = await db.select({ key: bins.imageKey }).from(bins).where(inArray(bins.createdBy, userIds));
+    for (let i = 0; i < photos.length; i += 10) await Promise.all(photos.slice(i, i + 10).map((p) => deleteImageObject(p.key)));
     if (binIds.length) {
       await db.delete(binEvents).where(inArray(binEvents.binId, binIds));
       await db.delete(bins).where(inArray(bins.id, binIds)); // issues and interactions cascade
@@ -85,20 +94,21 @@ async function reset() {
   console.log(`Removed demo data (${userIds.length} demo users and their bins).`);
 }
 
-// A photo already uploaded locally, reused for every demo bin
-function samplePhoto(): string | null {
-  const root = path.resolve(".local-uploads");
-  if (!existsSync(root)) return null;
-  const stack = [root];
-  while (stack.length) {
-    const dir = stack.pop()!;
-    for (const name of readdirSync(dir)) {
-      const full = path.join(dir, name);
-      if (statSync(full).isDirectory()) stack.push(full);
-      else if (/\.(jpe?g|png|webp)$/i.test(name)) return full;
-    }
+// Clear dustbin photos from the evaluation set, rotated across the demo bins
+const PHOTOS = loadCases()
+  .filter((c) => c.expect === "bin" && !c.hard)
+  .map(readCaseImage);
+
+const s3 = new S3Client({ region: config.AWS_REGION });
+
+async function storePhoto(key: string, bytes: Uint8Array) {
+  if (config.STORAGE_MODE === "local") {
+    const target = path.resolve(".local-uploads", key);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, bytes);
+    return;
   }
-  return null;
+  await s3.send(new PutObjectCommand({ Bucket: config.S3_BUCKET_NAME, Key: key, Body: bytes, ContentType: "image/jpeg" }));
 }
 
 async function seed() {
@@ -118,9 +128,6 @@ async function seed() {
     .returning({ id: users.id });
   const someone = () => pick(people).id;
 
-  const photo = samplePhoto();
-  if (!photo) console.warn("No photo found in .local-uploads; demo bins will have no picture. Add one bin in the app first.");
-
   type DemoBin = typeof bins.$inferInsert & { id: string; busy: number; fillHours: number; area: string };
   const demoBins: DemoBin[] = [];
   for (const area of AREAS) {
@@ -130,11 +137,6 @@ async function seed() {
       const createdBy = someone();
       const id = randomUUID();
       const imageKey = `dustbins/${createdBy}/${randomUUID()}.jpg`;
-      if (photo) {
-        const target = path.resolve(".local-uploads", imageKey);
-        mkdirSync(path.dirname(target), { recursive: true });
-        copyFileSync(photo, target);
-      }
       demoBins.push({
         id,
         name: `${pick(SPOTS)}, ${area.name}`,
@@ -238,6 +240,11 @@ async function seed() {
       }
     }
   }
+
+  for (let i = 0; i < demoBins.length; i += 10) {
+    await Promise.all(demoBins.slice(i, i + 10).map((b, j) => storePhoto(b.imageKey, PHOTOS[(i + j) % PHOTOS.length]!)));
+  }
+  console.log(`Stored ${demoBins.length} bin photos (${config.STORAGE_MODE}).`);
 
   await db.insert(bins).values(demoBins.map(({ busy: _b, fillHours: _f, area: _a, ...b }) => ({ ...b, missingReports: missing.get(b.id) ?? 0 })));
   await inChunks(issues, (c) => db.insert(binIssues).values(c));

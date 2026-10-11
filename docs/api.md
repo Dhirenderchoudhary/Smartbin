@@ -20,6 +20,8 @@ For the mobile app (Expo) and the admin dashboard (React). All routes live under
 | GET | `/dustbins/nearby` | Bins near a location |
 | POST | `/dustbins` | Register a bin |
 | POST | `/dustbins/:id/report-missing` | Report a bin as missing |
+| GET | `/evals/vision` | Latest AI evaluation run (**no login**), for the `/evals` page |
+| POST | `/evals/try` | Check your own photo with the AI without adding a bin; 20 per day |
 | POST | `/dustbins/:id/issues` | Report a problem: full, broken, dirty, other |
 | POST | `/dustbins/:id/issues/resolve` | Say a problem is sorted (emptied, fixed) |
 | POST | `/dustbins/:id/interactions` | Record that the user opened a bin, asked for directions or arrived |
@@ -42,6 +44,7 @@ For the mobile app (Expo) and the admin dashboard (React). All routes live under
 | DELETE | `/admin/bins/:id` | Delete a bin |
 | GET | `/admin/events` | Activity feed |
 | GET | `/admin/users` | User table |
+| POST | `/admin/evals/vision/run` | Re-run the AI evaluation live (about 6 s) |
 | GET | `/admin/settings` | Current limits, with defaults, ranges and change history |
 | PUT | `/admin/settings` | Change limits |
 
@@ -111,7 +114,7 @@ Every response uses one of two shapes.
 | HTTP | `code` | When | Suggested UI |
 |---|---|---|---|
 | 400 | `VALIDATION_ERROR` | A field is missing, has the wrong type or is out of range. `message` names the field, e.g. `lat: Number must be less than or equal to 90` | Fix the input |
-| 400 | `UNSUPPORTED_MEDIA` | The uploaded file isn't a JPEG, PNG or WebP, or is over 5 MB | Ask for another photo |
+| 400 | `UNSUPPORTED_MEDIA` | The uploaded file isn't a JPEG, PNG or WebP (checked from the file itself, not the claimed type), or is over 5 MB. The file is deleted | Ask for another photo |
 | 401 | `UNAUTHORIZED` | No token, or the token is expired or invalid | Refresh the token or sign in again |
 | 403 | `FORBIDDEN` | Not an admin (admin routes) | Show "Admin access required" |
 | 403 | `INVALID_IMAGE_KEY` | The image key belongs to another user | Upload again |
@@ -120,7 +123,7 @@ Every response uses one of two shapes.
 | 404 | `INVALID_IMAGE_KEY` | Nothing was uploaded with this key | Upload again |
 | 409 | `ALREADY_REPORTED` | This user already reported this bin as missing (allowed again after an admin resets its reports), or already has an open report of the same problem | "You've already reported this bin" |
 | 409 | `DUPLICATE_NEARBY` | A bin already exists within 15 m. `details.existingBinId` says which one | Offer to show the existing bin |
-| 422 | `NOT_A_BIN` | The AI didn't see a dustbin in the photo | Ask for a clearer photo |
+| 422 | `NOT_A_BIN` | The AI didn't see a purpose-made public dustbin (buckets, drums and garbage piles don't count). The photo is deleted. See `docs/anti-fake.md` | Ask for a clear photo of the whole bin |
 | 429 | `QUOTA_EXCEEDED` | The monthly limit is used up. **Checked before anything else**, so it comes back immediately, even if the body is invalid. `details` = `{ field, limit, resetsOn }` | Show `message`, e.g. "Your limit for bin registrations is exhausted. You have used all 10 for this month. It resets on 1 November." |
 | 500 | `INTERNAL_SERVER_ERROR` | Server problem | "Something went wrong, try again" |
 
@@ -279,6 +282,17 @@ Tells admins which bins people use. Fire and forget: don't wait for it or show e
 | `ARRIVED` | The user gets within 20 m while navigating |
 
 Repeats are ignored for a while (VIEW and ARRIVED: 1 hour, DIRECTIONS: 10 minutes per user and bin), so it's safe to send on every open. Returns `{ "recorded": true }`, or `false` when it was a repeat or the bin no longer exists.
+
+### AI evaluation (`/evals` page)
+
+- **`GET /evals/vision`** (no login): `{ latest, runs, tries, currentModel }`.
+  - `latest.summary`: `{ total, correct, accuracy, fakes: {total, rejected}, realBins: {total, accepted}, hard, matrix: {binAccepted, binRejected, fakeAccepted, fakeRejected}, avgMs, passed }`
+  - `latest.results[]`: one entry per test photo: `{ file, image, expect: "bin"|"not-bin", hard, note, accepted, confidence, reason, ms, correct, author, licence, source }`. `image` is a path on the web app, e.g. `/evals/bin-street.jpg`.
+  - `tries`: `{ total, accepted, limitPerDay }` for "try your own photo".
+- **`POST /evals/try`** `{ imageKey }` (signed in): upload the photo first with `/dustbins/upload-url`. Returns `{ accepted, confidence, reason, ms, triesLeft }`. The photo is deleted after the check, and no bin is created. Returns `429 QUOTA_EXCEEDED` after 20 checks in 24 hours.
+- **`POST /admin/evals/vision/run`** (admin): runs all test photos through the AI and saves the run. Takes about 6 s.
+
+See `docs/anti-fake.md` for the method and results.
 
 ---
 

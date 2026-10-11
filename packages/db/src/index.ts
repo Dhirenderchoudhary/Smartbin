@@ -27,6 +27,8 @@ export {
   binIssues,
   binInteractions,
   searchLogs,
+  evalRuns,
+  photoChecks,
   BIN_INTERACTION_TYPES,
   type BinInteractionType,
   BIN_ISSUE_TYPES,

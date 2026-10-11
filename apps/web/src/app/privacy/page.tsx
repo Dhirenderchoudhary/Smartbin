@@ -32,7 +32,9 @@ const sections: { title: string; body: React.ReactNode }[] = [
     body: (
       <p>
         When you add a bin, its photo is sent to an AI service (OpenAI or Amazon Bedrock) only to check that it shows a dustbin.
-        If the check fails, we delete the photo. Please photograph the bin, not people; avoid faces and number plates.
+        If the check fails, we delete the photo. Photos you check on the AI evaluation page (&ldquo;Try to fool it yourself&rdquo;) are deleted
+        straight after the check; we keep only the verdict, linked to your account, to apply the daily limit. Please photograph the bin, not
+        people; avoid faces and number plates.
       </p>
     ),
   },

@@ -11,6 +11,7 @@ import * as HealthController from "./modules/health/controller.js";
 import * as UserController from "./modules/user/controller.js";
 import * as DustbinController from "./modules/dustbin/controller.js";
 import * as AdminController from "./modules/admin/controller.js";
+import * as EvalsController from "./modules/evals/controller.js";
 
 const app = express();
 
@@ -57,6 +58,11 @@ apiRouter.get("/admin/events", adminOnly, AdminController.events);
 apiRouter.get("/admin/users", adminOnly, AdminController.usersList);
 apiRouter.get("/admin/settings", adminOnly, AdminController.settings);
 apiRouter.put("/admin/settings", adminOnly, AdminController.updateSettings);
+apiRouter.post("/admin/evals/vision/run", adminOnly, EvalsController.run);
+
+// --- AI evaluation: public results, signed-in "try your own photo" ---
+apiRouter.get("/evals/vision", EvalsController.latest);
+apiRouter.post("/evals/try", authenticateToken, EvalsController.tryPhoto);
 
 // Photo upload/view routes for STORAGE_MODE=local (stand-in for S3 signed links)
 if (config.STORAGE_MODE === "local") {

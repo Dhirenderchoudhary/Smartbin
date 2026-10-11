@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid, doublePrecision } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid, doublePrecision } from "drizzle-orm/pg-core";
 
 export const bins = pgTable("bins", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -133,6 +133,39 @@ export const binInteractions = pgTable(
     index("bin_interactions_bin_id_created_at_idx").on(t.binId, t.createdAt),
     index("bin_interactions_type_created_at_idx").on(t.type, t.createdAt),
   ]
+);
+
+// Runs of the AI photo-check evaluation (labelled test photos), shown on the public /evals page.
+// summary: headline numbers; results: one entry per photo with the model's verdict and reason.
+export const evalRuns = pgTable(
+  "eval_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(), // "vision"
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    triggeredBy: uuid("triggered_by").references(() => users.id, { onDelete: "set null" }),
+    durationMs: integer("duration_ms").notNull(),
+    summary: jsonb("summary").notNull(),
+    results: jsonb("results").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("eval_runs_kind_created_at_idx").on(t.kind, t.createdAt)]
+);
+
+// "Try your own photo" checks on /evals: for the daily limit per user and the page's counter.
+// The photo itself is deleted right after the check; only the verdict is kept.
+export const photoChecks = pgTable(
+  "photo_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    accepted: boolean("accepted").notNull(),
+    confidence: doublePrecision("confidence").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("photo_checks_user_id_created_at_idx").on(t.userId, t.createdAt)]
 );
 
 // Where people look for bins. Anonymous on purpose: no user, position rounded to ~100 m.

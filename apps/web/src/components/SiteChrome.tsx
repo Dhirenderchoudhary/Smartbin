@@ -51,6 +51,7 @@ const FOOTER_LINKS: { title: string; links: { href: string; label: string }[] }[
   {
     title: "About",
     links: [
+      { href: "/evals", label: "AI evaluation" },
       { href: "/privacy", label: "Privacy" },
       { href: "/landing/CREDITS.md", label: "Image credits" },
     ],

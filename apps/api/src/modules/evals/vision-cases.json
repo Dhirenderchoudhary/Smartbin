@@ -1,0 +1,187 @@
+{
+  "about": "Labelled photos for the AI dustbin check, shown on the public /evals page. Photos from Wikimedia Commons, resized, stored in apps/web/public/evals (credits in CREDITS.md there). 'hard' cases are reported but don't fail a run.",
+  "cases": [
+    {
+      "file": "bin-street.jpg",
+      "expect": "bin",
+      "note": "Street litter bin in a park, close up",
+      "source": "https://commons.wikimedia.org/wiki/File:Street_dustbin.jpg",
+      "author": "Donna Alvita",
+      "licence": "CC BY-SA 4.0",
+      "image": "/evals/bin-street.jpg"
+    },
+    {
+      "file": "bin-litter-uk.jpg",
+      "expect": "bin",
+      "note": "Overflowing wall-mounted litter bin at night",
+      "source": "https://commons.wikimedia.org/wiki/File:Public_Litter_Bin_(0923)_-_Railway_Street,_Gillingham,_Medway.jpg",
+      "author": "Sunolafjagtenben-hur",
+      "licence": "CC0",
+      "image": "/evals/bin-litter-uk.jpg"
+    },
+    {
+      "file": "bin-wet-dry-india.jpg",
+      "expect": "bin",
+      "note": "Green and yellow degradable / non-degradable bins (India)",
+      "source": "https://commons.wikimedia.org/wiki/File:Dustbin_2.jpg",
+      "author": "Vinoth offl",
+      "licence": "CC BY-SA 4.0",
+      "image": "/evals/bin-wet-dry-india.jpg"
+    },
+    {
+      "file": "bin-park-bangladesh.jpg",
+      "expect": "bin",
+      "note": "Yellow park dustbin with a Bengali label",
+      "source": "https://commons.wikimedia.org/wiki/File:Dustbin_at_Shaheed_A.H.M_Qamaruzzaman_Central_Park_and_Zoo.jpg",
+      "author": "ROCKY",
+      "licence": "CC BY-SA 4.0",
+      "image": "/evals/bin-park-bangladesh.jpg"
+    },
+    {
+      "file": "bin-wheelie-row.jpg",
+      "expect": "bin",
+      "note": "Row of green wheelie bins in an alley",
+      "source": "https://commons.wikimedia.org/wiki/File:Row_of_green_wheelie_bins_on_Capitol_Hill.jpg",
+      "author": "Ser Amantio di Nicolao",
+      "licence": "CC BY-SA 3.0",
+      "image": "/evals/bin-wheelie-row.jpg"
+    },
+    {
+      "file": "bin-street-container.jpg",
+      "expect": "bin",
+      "note": "Large street waste container (non-recyclable)",
+      "source": "https://commons.wikimedia.org/wiki/File:Dumpster_for_non-recyclable_waste.jpg",
+      "author": "Andy Li",
+      "licence": "CC0",
+      "image": "/evals/bin-street-container.jpg"
+    },
+    {
+      "file": "bin-bamboo-india.jpg",
+      "expect": "bin",
+      "hard": true,
+      "note": "Hand-woven bamboo basket bin on a pole (Nameri, Assam)",
+      "source": "https://commons.wikimedia.org/wiki/File:Bamboo_dustbin_in_nameri.jpg",
+      "author": "Himanshum14",
+      "licence": "CC BY-SA 4.0",
+      "image": "/evals/bin-bamboo-india.jpg"
+    },
+    {
+      "file": "bin-far-away-park.jpg",
+      "expect": "bin",
+      "hard": true,
+      "note": "Recycling bins tiny in the distance of a park; we want people to take close photos",
+      "source": "https://commons.wikimedia.org/wiki/File:Recycling_bins_in_Victoria_Park_-_geograph.org.uk_-_4559063.jpg",
+      "author": "Gerald England",
+      "licence": "CC BY-SA 2.0",
+      "image": "/evals/bin-far-away-park.jpg"
+    },
+    {
+      "file": "not-plastic-bucket.jpg",
+      "expect": "not-bin",
+      "note": "Look-alike: plastic household bucket",
+      "source": "https://commons.wikimedia.org/wiki/File:Plastic_bucket.jpg",
+      "author": "Kottakkalnet",
+      "licence": "CC BY-SA 4.0",
+      "image": "/evals/not-plastic-bucket.jpg"
+    },
+    {
+      "file": "not-dirty-bucket.jpg",
+      "expect": "not-bin",
+      "note": "Look-alike: dirty bucket being scraped",
+      "source": "https://commons.wikimedia.org/wiki/File:Bucket.jpg",
+      "author": "Achim Hering",
+      "licence": "Public domain",
+      "image": "/evals/not-dirty-bucket.jpg"
+    },
+    {
+      "file": "not-post-box.jpg",
+      "expect": "not-bin",
+      "note": "Look-alike: red Victorian post box on a street",
+      "source": "https://commons.wikimedia.org/wiki/File:Victorian_pillar_box,_Rothesay.jpg",
+      "author": "DeFacto",
+      "licence": "CC BY-SA 4.0",
+      "image": "/evals/not-post-box.jpg"
+    },
+    {
+      "file": "not-fire-hydrant.jpg",
+      "expect": "not-bin",
+      "note": "Look-alike: yellow fire hydrant on a pavement",
+      "source": "https://commons.wikimedia.org/wiki/File:Fire_hydrant.jpg",
+      "author": "brdavids",
+      "licence": "CC BY 2.0",
+      "image": "/evals/not-fire-hydrant.jpg"
+    },
+    {
+      "file": "not-old-barrel.jpg",
+      "expect": "not-bin",
+      "note": "Look-alike: old wooden barrel",
+      "source": "https://commons.wikimedia.org/wiki/File:Barrel.jpg",
+      "author": "Haykush1979",
+      "licence": "CC BY-SA 4.0",
+      "image": "/evals/not-old-barrel.jpg"
+    },
+    {
+      "file": "not-bin-bag.jpg",
+      "expect": "not-bin",
+      "note": "Garbage, no bin: open black bag of trash on the ground",
+      "source": "https://commons.wikimedia.org/wiki/File:A_typical_black_bin_bag_from_the_UK_20060811.jpg",
+      "author": "Yuyudevil",
+      "licence": "Public domain",
+      "image": "/evals/not-bin-bag.jpg"
+    },
+    {
+      "file": "not-garbage-dump-ooty.jpg",
+      "expect": "not-bin",
+      "note": "Garbage, no bin: open dump with buffaloes (Ooty)",
+      "source": "https://commons.wikimedia.org/wiki/File:Garbage_dump_Ooty.jpg",
+      "author": "Anand Osuri",
+      "licence": "CC BY-SA 4.0",
+      "image": "/evals/not-garbage-dump-ooty.jpg"
+    },
+    {
+      "file": "not-garbage-dump-udaipur.jpg",
+      "expect": "not-bin",
+      "note": "Garbage, no bin: dump with vultures (Udaipur)",
+      "source": "https://commons.wikimedia.org/wiki/File:Egyptian_Vulture_flock_over_Garbage_Dump_in_Udaipur.jpg",
+      "author": "Sarusscape",
+      "licence": "CC BY-SA 4.0",
+      "image": "/evals/not-garbage-dump-udaipur.jpg"
+    },
+    {
+      "file": "not-traffic-cone.jpg",
+      "expect": "not-bin",
+      "note": "Drawing: traffic cone illustration",
+      "source": "https://commons.wikimedia.org/wiki/File:Traffic_cone.jpg",
+      "author": "paperdog2005",
+      "licence": "CC BY 2.0",
+      "image": "/evals/not-traffic-cone.jpg"
+    },
+    {
+      "file": "not-water-tank.jpg",
+      "expect": "not-bin",
+      "note": "Unrelated: water tank tower silhouette against clouds",
+      "source": "https://commons.wikimedia.org/wiki/File:Water_tank.jpg",
+      "author": "Muhammad Saeed",
+      "licence": "CC BY-SA 3.0",
+      "image": "/evals/not-water-tank.jpg"
+    },
+    {
+      "file": "not-tractor-planter.jpg",
+      "expect": "not-bin",
+      "note": "Unrelated: tractor seedling planter in a field",
+      "source": "https://commons.wikimedia.org/wiki/File:Planter.jpg",
+      "author": "werktuigendagen",
+      "licence": "CC BY-SA 2.0",
+      "image": "/evals/not-tractor-planter.jpg"
+    },
+    {
+      "file": "not-terracotta-closeup.jpg",
+      "expect": "not-bin",
+      "note": "Unrelated: terracotta pot surface close-up",
+      "source": "https://commons.wikimedia.org/wiki/File:Terraccotta_Flower_Pot.jpg",
+      "author": "Si Griffiths",
+      "licence": "CC BY-SA 3.0",
+      "image": "/evals/not-terracotta-closeup.jpg"
+    }
+  ]
+}
