@@ -244,8 +244,7 @@ cd ../web && npm install && npm run dev       # web on http://localhost:3001 (re
 | | Worked on |
 |---|---|
 | **Satya Sootar** | Web app and design: landing page, the map app (find, add and report bins, walking directions), the admin dashboard (overview, demand map, cleaning queue, bins, activity, users, settings), problem reports, usage and demand analytics, demo data |
-| **Karan Kumar** | API and AWS: bin rules and quotas, Cognito sign-in, S3 photo pipeline, AI photo check, fake-bin defences, AI evaluation and the `/evals` page, admin API, AWS deployment (EC2, RDS, API Gateway, Location, Parameter Store) |
-| **Dhirender Choudhary** | Project setup: the GitHub repository and the Next.js and Drizzle foundation |
-| **Sudo** | Reviewed the code and helped produce the demo video |
+| **Karan Kumar** | API and AWS: bin rules and quotas, Cognito sign-in, S3 photo pipeline, AI photo check, fake-bin defences, AI evaluation and the `/evals` page, admin API, AWS deployment (EC2, RDS, API Gateway, Location, Parameter Store), recorded the demo video |
+| **Dhirender Choudhary** | Project setup and code review: the GitHub repository, the Next.js and Drizzle foundation, and reviewing the team's code |
 
 Demo photos on `/evals`: Wikimedia Commons contributors, credited in [apps/web/public/evals/CREDITS.md](apps/web/public/evals/CREDITS.md).
